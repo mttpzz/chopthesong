@@ -1,7 +1,8 @@
-# Android app (WebView on Hugging Face Spaces)
+# Android app (WebView on Streamlit Community Cloud)
 
-The app is a single screen: a WebView that loads the public Space. It contains no API keys
-and performs no search itself. The Python backend and UI live in the Space.
+The app is a single screen: a WebView that loads the public ChopSongs app at
+`https://chopsongs.streamlit.app/`. It contains no API keys and performs no search itself.
+The Python backend and UI live on Streamlit Community Cloud.
 
 ## Status
 
@@ -31,8 +32,8 @@ distribution and is not written by hand.
    - `app/src/main/res/values/strings.xml`
    - `app/build.gradle.kts`: keep the plugin versions Studio generated, change only the
      parts that differ. The file here has no versions on purpose.
-4. Set the real Space URL in `app/build.gradle.kts` (`SPACE_URL`), replacing `PLACEHOLDER`.
-   Use the direct address `https://<user>-<space>.hf.space`.
+4. The URL is already set in `app/build.gradle.kts` (`SPACE_URL = https://chopsongs.streamlit.app/`).
+   Change it only if the app address changes.
 
 ## Build
 
@@ -47,9 +48,10 @@ From the terminal (after Studio has created the wrapper):
 
 ## Behaviour
 
-- Only `https` links on the Space's host open in the WebView. Other links open in the browser.
+- Only `https` links on the app's host (`chopsongs.streamlit.app`) and on the Streamlit login
+  host (`share.streamlit.io`) open in the WebView. Other links open in the browser.
 - A page that does not finish within 60 seconds shows "The app is waking up…" with a Retry
-  button. The Space pauses after 48 hours of inactivity on the free tier, so the first open can
+  button. The app pauses after a period of inactivity on the free tier, so the first open can
   be slow.
 - Network errors show a message with Retry.
 - Permissions: only `INTERNET`.

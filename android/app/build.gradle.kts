@@ -1,8 +1,8 @@
-// Module configuration. Plugin versions are NOT set here: take them from the
-// project that Android Studio generates (see android/README.md, step 1).
+// Module configuration. Plugin versions come from the root build file, which Android Studio
+// generates (see android/README.md, step 1). Recent Android Gradle Plugin versions include
+// Kotlin support, so the separate Kotlin plugin is not applied here.
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
 }
 
 android {
@@ -16,8 +16,8 @@ android {
         versionCode = 1
         versionName = "0.1.0"
 
-        // Public Space URL. Replace the placeholder with the real https://<user>-<space>.hf.space
-        buildConfigField("String", "SPACE_URL", "\"https://PLACEHOLDER.hf.space\"")
+        // Public app URL (Streamlit Community Cloud).
+        buildConfigField("String", "SPACE_URL", "\"https://chopsongs.streamlit.app/\"")
     }
 
     buildFeatures {

@@ -16,7 +16,7 @@ import android.widget.ProgressBar
 import android.widget.TextView
 
 /**
- * Single screen: a WebView that loads the public Hugging Face Space.
+ * Single screen: a WebView that loads the public ChopSongs app on Streamlit Community Cloud.
  * The app holds no API keys and does no search itself.
  */
 class MainActivity : Activity() {
@@ -30,7 +30,9 @@ class MainActivity : Activity() {
     private val slowStartTimeout = Runnable { showMessage(getString(R.string.waking_up)) }
 
     private val spaceUri: Uri = Uri.parse(BuildConfig.SPACE_URL)
-    private val spaceHost: String? = spaceUri.host
+
+    // The app's own host, plus the Streamlit login host: sign-in redirects go through it.
+    private val allowedHosts: Set<String> = setOf(spaceUri.host ?: "", AUTH_HOST)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -66,7 +68,7 @@ class MainActivity : Activity() {
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val uri = request.url
-                if (uri.scheme == "https" && uri.host == spaceHost) {
+                if (uri.scheme == "https" && uri.host in allowedHosts) {
                     return false
                 }
                 // Anything outside the Space opens in the system browser.
@@ -120,6 +122,8 @@ class MainActivity : Activity() {
         webView.saveState(outState)
     }
 
+    // onBackPressed is deprecated from API 33, but minSdk is 24, so the back press is still handled here.
+    @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
     override fun onBackPressed() {
         if (webView.canGoBack()) {
             webView.goBack()
@@ -137,5 +141,6 @@ class MainActivity : Activity() {
     companion object {
         /** After this long without a finished page, tell the user the Space may be waking up. */
         private const val SLOW_START_MS = 60_000L
+        private const val AUTH_HOST = "share.streamlit.io"
     }
 }
