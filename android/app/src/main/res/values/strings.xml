@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ChopSongs</string>
+    <string name="retry">Retry</string>
+    <string name="waking_up">The app is waking up. Please wait a moment and try again.</string>
+    <string name="network_error">Could not reach the app. Check your connection and try again.</string>
+</resources>

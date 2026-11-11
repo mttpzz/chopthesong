@@ -1,0 +1,98 @@
+[
+  {
+    "id": "bohemian-rhapsody",
+    "query": "Bohemian Rhapsody",
+    "artist": "Queen",
+    "expected_mbid": "e53edec4-4e56-4543-8737-2a25be46ba2d",
+    "expected_samples_mbids": [],
+    "notes": "Expected MBID confirmed by the owner."
+  },
+  {
+    "id": "praise-you",
+    "query": "Praise You",
+    "artist": "Fatboy Slim",
+    "expected_mbid": "115c7151-8692-452d-b17e-f72cdadd8184",
+    "expected_samples_mbids": [],
+    "notes": "Expected MBID confirmed by the owner."
+  },
+  {
+    "id": "stronger",
+    "query": "Stronger",
+    "artist": "Kanye West",
+    "expected_mbid": "8009d470-912b-42fa-8261-b88c488eb935",
+    "expected_samples_mbids": [],
+    "notes": "Expected MBID confirmed by the owner; Graduation album version."
+  },
+  {
+    "id": "around-the-world",
+    "query": "Around the World",
+    "artist": "Daft Punk",
+    "expected_mbid": "7813d6e5-fe21-4cd0-8f8b-82b7c15662ae",
+    "expected_samples_mbids": [],
+    "notes": "Expected MBID confirmed by the owner."
+  },
+  {
+    "id": "smells-like-teen-spirit",
+    "query": "Smells Like Teen Spirit",
+    "artist": "Nirvana",
+    "expected_mbid": "302aebf4-0f02-498d-86b8-a453c3462b74",
+    "expected_samples_mbids": [],
+    "notes": "Expected MBID confirmed by the owner."
+  },
+  {
+    "id": "rappers-delight",
+    "query": "Rapper's Delight",
+    "artist": "The Sugarhill Gang",
+    "expected_mbid": "01b29523-a60a-42c5-9f56-b7dfad3ca604",
+    "expected_samples_mbids": [],
+    "notes": "Expected MBID confirmed by the owner."
+  },
+  {
+    "id": "walk-this-way",
+    "query": "Walk This Way",
+    "artist": "Run-D.M.C.",
+    "expected_mbid": "9e69a266-0e9f-4f0c-bb3c-f42ed7ffc7e0",
+    "expected_samples_mbids": [],
+    "notes": "Expected MBID confirmed by the owner."
+  },
+  {
+    "id": "amen-brother",
+    "query": "Amen, Brother",
+    "artist": "The Winstons",
+    "expected_mbid": "61ef31c0-d65b-4d76-b9bb-80eec6e107de",
+    "expected_samples_mbids": [],
+    "notes": "Expected MBID confirmed by the owner."
+  },
+  {
+    "id": "billie-jean",
+    "query": "Billie Jean",
+    "artist": "Michael Jackson",
+    "expected_mbid": "56f70ea3-6dc3-4092-acf8-15d47d2609a6",
+    "expected_samples_mbids": [],
+    "notes": "Expected MBID confirmed by the owner."
+  },
+  {
+    "id": "gangstas-paradise",
+    "query": "Gangsta's Paradise",
+    "artist": "Coolio",
+    "expected_mbid": "4bf22190-fce4-4fd3-90df-baa994ddf2ae",
+    "expected_samples_mbids": [],
+    "notes": "Expected MBID confirmed by the owner."
+  },
+  {
+    "id": "hey-ya",
+    "query": "Hey Ya!",
+    "artist": "OutKast",
+    "expected_mbid": "58faa092-f0b4-448e-a461-fa63df09901b",
+    "expected_samples_mbids": [],
+    "notes": "Expected MBID confirmed by the owner."
+  },
+  {
+    "id": "blue-monday",
+    "query": "Blue Monday",
+    "artist": "New Order",
+    "expected_mbid": "a5d75009-23a1-4946-949c-f1463ba12938",
+    "expected_samples_mbids": [],
+    "notes": "Expected MBID confirmed by the owner."
+  }
+]
