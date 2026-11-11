@@ -1,0 +1,8 @@
+# Fixed dark theme with a deep red accent. Not following the system setting:
+# the Android WebView has no theme switch, so the look must be the same everywhere.
+[theme]
+base = "dark"
+primaryColor = "#6E1414"
+backgroundColor = "#121212"
+secondaryBackgroundColor = "#1E1E1E"
+textColor = "#EDEDED"

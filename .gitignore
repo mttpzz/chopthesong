@@ -21,3 +21,10 @@ android/build/
 android/local.properties
 .idea/
 *.iml
+
+# Android signing keys: never commit them
+*.jks
+*.keystore
+
+# Signed release APKs: build outputs, not source
+android/app/release/

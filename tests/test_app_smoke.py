@@ -19,17 +19,34 @@ def test_app_renders_without_exceptions() -> None:
     assert app.text_input[1].label == "Artist (optional)"
 
 
-def test_search_button_stays_disabled_until_a_song_is_typed() -> None:
+def test_search_form_submits_the_typed_values(monkeypatch) -> None:
+    calls: list[tuple[str, str | None]] = []
+
+    def fake_start_search(
+        query: str, artist: str | None, *, checkpointer: object
+    ) -> dict[str, object]:
+        calls.append((query, artist))
+        return {"thread_id": "thread", "status": "needs_input", "candidates": []}
+
+    monkeypatch.setattr("src.service.start_search", fake_start_search)
+
     app = AppTest.from_file(str(APP), default_timeout=20)
     app.run()
 
-    assert app.button[0].label == "Search"
-    assert app.button[0].disabled is True
+    assert app.form_submit_button[0].label == "Search"
 
-    app.text_input[0].set_value("The Message").run()
+    # Enter or a click on Search submits the form: with no song, nothing starts.
+    app.form_submit_button[0].click().run()
+
+    assert calls == []
+    assert any(warning.value == "Type a song first." for warning in app.warning)
+
+    app.text_input(key="song_input").set_value(" The Message ")
+    app.text_input(key="artist_input").set_value(" Grandmaster Flash ")
+    app.form_submit_button[0].click().run()
 
     assert not app.exception
-    assert app.button[0].disabled is False
+    assert calls == [("The Message", "Grandmaster Flash")]
 
 
 def test_report_renders_the_tree_without_showing_evidence() -> None:

@@ -103,7 +103,8 @@ def _render_summary(summary: dict[str, Any] | None) -> None:
         st.write(body)
     artist_view = summary.get("artist_view")
     if artist_view:
-        st.caption(artist_view)
+        with st.container(key="chopsongs-artist-view"):
+            st.caption(artist_view)
 
 
 def _render_samples(nodes: list[dict[str, Any]]) -> None:
@@ -139,11 +140,13 @@ def _render_done(result: dict[str, Any]) -> None:
     meta = [track.get("artist"), track.get("album"), track.get("year")]
     caption = " - ".join(str(value) for value in meta if value)
     if caption:
-        st.caption(caption)
+        with st.container(key="chopsongs-track-meta"):
+            st.caption(caption)
 
     genres = _unique(report.get("genres") or [])
     if genres:
-        st.pills("Genres", genres, disabled=True)
+        with st.container(key="chopsongs-genres"):
+            st.pills("Genres", genres, disabled=True)
 
     _render_summary(report.get("lyrics_summary"))
 
@@ -156,25 +159,92 @@ def _render_done(result: dict[str, Any]) -> None:
 
     sources = _unique(report.get("sources") or [])
     if sources:
-        st.pills("Sources", sources, disabled=True)
+        with st.container(key="chopsongs-sources"):
+            st.pills("Sources", sources, disabled=True)
 
     notes = report.get("notes") or []
     if notes:
-        st.write("**Notes**")
-        for note in notes:
-            st.write(f"- {note}")
+        with st.container(key="chopsongs-notes"):
+            st.write("**Notes**")
+            for note in notes:
+                st.write(f"- {note}")
 
 
 def main() -> None:
     st.set_page_config(page_title=APP_NAME, layout="centered")
+    st.markdown(
+        """
+        <style>
+        [data-testid="stTextInput"] [data-testid="InputInstructions"] {
+            display: none !important;
+        }
+        [data-testid="stHeadingWithActionElements"] h1,
+        [data-testid="stHeadingWithActionElements"] h1 span,
+        [data-testid="stHeadingWithActionElements"] h2,
+        [data-testid="stHeadingWithActionElements"] h2 span,
+        [data-testid="stHeadingWithActionElements"] h3,
+        [data-testid="stHeadingWithActionElements"] h3 span {
+            color: #6E1414 !important;
+        }
+        .st-key-chopsongs-artist-view [data-testid="stCaptionContainer"] {
+            color: #6E1414 !important;
+        }
+        .st-key-chopsongs-subtitle [data-testid="stCaptionContainer"] {
+            color: #EDEDED !important;
+            opacity: 1 !important;
+            font-size: 1rem !important;
+        }
+        .st-key-chopsongs-notes [data-testid="stMarkdownContainer"] {
+            color: #EDEDED !important;
+            opacity: 1 !important;
+        }
+        .st-key-chopsongs-notes [data-testid="stMarkdownContainer"] strong {
+            color: #6E1414 !important;
+            font-size: 1.25rem !important;
+        }
+        .st-key-chopsongs-track-meta [data-testid="stCaptionContainer"] {
+            color: #EDEDED !important;
+            opacity: 1 !important;
+            font-size: 1rem !important;
+        }
+        .st-key-chopsongs-genres [data-testid="stWidgetLabel"],
+        .st-key-chopsongs-genres [data-testid="stWidgetLabel"] [data-testid="stMarkdownContainer"],
+        .st-key-chopsongs-genres [data-testid="stWidgetLabel"] p {
+            color: #EDEDED !important;
+            opacity: 1 !important;
+            font-size: 1rem !important;
+        }
+        .st-key-chopsongs-genres button {
+            color: #EDEDED !important;
+            background-color: transparent !important;
+            border-color: rgba(237, 237, 237, 0.25) !important;
+            font-size: 1rem !important;
+        }
+        .st-key-chopsongs-sources button {
+            color: rgba(237, 237, 237, 0.6) !important;
+            background-color: transparent !important;
+            border-color: rgba(237, 237, 237, 0.25) !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
     _init_state()
 
     st.title(APP_NAME)
+    with st.container(key="chopsongs-subtitle"):
+        st.caption("From a song to its roots: samples, genres and lyrics.")
 
-    song = st.text_input("Song", key="song_input")
-    artist = st.text_input("Artist (optional)", key="artist_input")
-    if st.button("Search", type="primary", disabled=not song.strip()):
-        _run_search(song.strip(), artist.strip() or None)
+    with st.form("search_form", border=False):
+        song = st.text_input("Song", key="song_input")
+        artist = st.text_input("Artist (optional)", key="artist_input")
+        submitted = st.form_submit_button("Search", type="primary")
+
+    if submitted:
+        if song.strip():
+            _run_search(song.strip(), artist.strip() or None)
+        else:
+            st.warning("Type a song first.")
 
     result = st.session_state["result"]
     if not result:
