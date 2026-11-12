@@ -113,6 +113,8 @@ async def test_musicbrainz_sample_is_high_confidence() -> None:
             "relation": "sample",
             "source": "MusicBrainz",
             "confidence": "high",
+            "spotify_url": None,
+            "spotify_artist_url": None,
             "samples": [],
         }
     ]

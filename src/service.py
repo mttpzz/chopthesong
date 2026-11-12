@@ -19,8 +19,10 @@ from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.types import Command
 
 from src.config import get_settings
+from src.http import Http
 from src.llm import llm_failure_message
 from src.resolver import Runtime, build_resolve_graph
+from src.spotify import client_from_settings
 from src.tracing import Tracer, build_tracer
 
 logger = logging.getLogger(__name__)
@@ -168,6 +170,12 @@ async def _invoke(
             else:
                 result = await graph.ainvoke(Command(resume=resume), config)
             outcome = _payload(thread_id, result)
+            if outcome.get("status") == "done" and outcome.get("report"):
+                await add_spotify_links(
+                    outcome["report"],
+                    getattr(runtime, "settings", None),
+                    getattr(runtime, "http", None),
+                )
             _record_root_metrics(root, outcome)
         return outcome
     except Exception as exc:  # never let a traceback or a key reach the UI
@@ -250,3 +258,98 @@ def _payload(thread_id: str, result: dict[str, Any]) -> dict[str, Any]:
     if notice is not None:
         payload["notice"] = notice
     return payload
+
+
+# Spotify links are optional decoration: at most twenty sample searches per report.
+_MAX_SAMPLE_SEARCHES = 20
+
+
+def _walk_samples(nodes: list[dict[str, Any]]):
+    """Yield every sample node depth first, parents before their children."""
+    for node in nodes:
+        yield node
+        yield from _walk_samples(node.get("samples") or [])
+
+
+async def _add_sample_track_links(
+    nodes: list[dict[str, Any]], client: Any, budget: int
+) -> int:
+    """Spend the budget on sample titles first, as in the previous step."""
+    for node in _walk_samples(nodes):
+        if budget <= 0 or client.blocked:
+            return budget
+        node["spotify_url"] = await client.find_track_url(
+            node.get("title"), node.get("artist")
+        )
+        budget -= 1
+    return budget
+
+
+async def _add_sample_artist_links(
+    nodes: list[dict[str, Any]], client: Any, budget: int
+) -> int:
+    """Use the remaining budget on artists; an empty artist spends nothing."""
+    for node in _walk_samples(nodes):
+        if budget <= 0 or client.blocked:
+            return budget
+        artist = str(node.get("artist") or "").strip()
+        if not artist:
+            continue
+        node["spotify_artist_url"] = await client.find_artist_url(artist)
+        budget -= 1
+    return budget
+
+
+async def add_spotify_links(
+    report: dict[str, Any], settings: Any, http: Any | None = None
+) -> None:
+    """Attach Spotify search links to a report, outside the graph.
+
+    With missing credentials or search failures the fields stay ``None`` and
+    the report renders exactly as before. The function never raises: links are
+    optional, and a Spotify outage must not break a finished report.
+    """
+    if not report:
+        return
+    client_id = getattr(settings, "spotify_client_id", None)
+    client_secret = getattr(settings, "spotify_client_secret", None)
+    if not (client_id and client_secret):
+        return
+
+    owned_http: Http | None = None
+    try:
+        if http is None:
+            owned_http = Http(
+                settings.cache_dir,
+                ttl=settings.cache_ttl_seconds,
+                user_agent=settings.user_agent,
+            )
+            http = owned_http
+        client = client_from_settings(settings, http)
+        if client is None:
+            return
+
+        track = report.get("track") or {}
+        report["spotify_track_url"] = await client.find_track_url(
+            track.get("title"), track.get("artist")
+        )
+        report["spotify_artist_url"] = await client.find_artist_url(
+            track.get("artist")
+        )
+        report["spotify_album_url"] = await client.find_album_url(
+            track.get("album"), track.get("artist")
+        )
+        remaining = await _add_sample_track_links(
+            report.get("samples") or [], client, _MAX_SAMPLE_SEARCHES
+        )
+        await _add_sample_artist_links(
+            report.get("samples") or [], client, remaining
+        )
+    except Exception as exc:  # links are decoration, never a reason to fail
+        logger.warning("Spotify link enrichment failed (%s)", type(exc).__name__)
+    finally:
+        if owned_http is not None:
+            try:
+                await owned_http.aclose()
+            except Exception:  # a close failure must not replace the report
+                logger.warning("Failed to close the Spotify HTTP client", exc_info=True)

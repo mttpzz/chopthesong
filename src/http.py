@@ -61,13 +61,18 @@ class Http:
         url: str,
         params: dict[str, Any] | None = None,
         *,
+        headers: dict[str, str] | None = None,
         limiter: RateLimiter | None = None,
         ttl: int | None = None,
+        retry_transient: bool = True,
     ) -> Any:
         """Fetch JSON, reusing a cached response while it is still fresh.
 
         Responses are keyed by URL and sorted params. Free APIs cannot absorb
         repeated calls, so caching matters as much as the rate limiter.
+        ``headers`` are sent with the request but never enter the cache key, so
+        a refreshed bearer token still reuses the cached body. Set
+        ``retry_transient`` to false when the caller owns the retry policy.
         """
         # Sorting the params keeps equivalent requests on the same cache key.
         key = hashlib.sha256(
@@ -82,8 +87,12 @@ class Http:
         for attempt in range(3):
             if limiter:
                 await limiter.wait()
-            response = await self._client.get(url, params=params)
-            if response.status_code in {429, 503} and attempt < 2:
+            response = await self._client.get(url, params=params, headers=headers)
+            if (
+                retry_transient
+                and response.status_code in {429, 503}
+                and attempt < 2
+            ):
                 await asyncio.sleep(2 * (attempt + 1))
                 continue
             break

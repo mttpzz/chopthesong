@@ -111,8 +111,15 @@ def _render_samples(nodes: list[dict[str, Any]]) -> None:
     for node in nodes:
         with st.container(border=True):
             title = node.get("title") or "Unknown"
+            track_url = node.get("spotify_url")
+            label = f"[{title}]({track_url})" if track_url else title
             artist = node.get("artist")
-            st.markdown(f"**{title}**" + (f" - {artist}" if artist else ""))
+            artist_url = node.get("spotify_artist_url")
+            if artist and artist_url:
+                artist_label = f"[{artist}]({artist_url})"
+            else:
+                artist_label = artist
+            st.markdown(f"**{label}**" + (f" - {artist_label}" if artist else ""))
             details = []
             if node.get("year"):
                 details.append(f"Year: {node['year']}")
@@ -136,9 +143,23 @@ def _render_done(result: dict[str, Any]) -> None:
         return
 
     track = report.get("track") or {}
-    st.subheader(track.get("title") or "Unknown track")
-    meta = [track.get("artist"), track.get("album"), track.get("year")]
-    caption = " - ".join(str(value) for value in meta if value)
+    title = track.get("title") or "Unknown track"
+    track_url = report.get("spotify_track_url")
+    st.subheader(f"[{title}]({track_url})" if track_url else title)
+
+    artist = track.get("artist")
+    album = track.get("album")
+    year = track.get("year")
+    meta: list[str] = []
+    if artist:
+        artist_url = report.get("spotify_artist_url")
+        meta.append(f"[{artist}]({artist_url})" if artist_url else str(artist))
+    if album:
+        album_url = report.get("spotify_album_url")
+        meta.append(f"[{album}]({album_url})" if album_url else str(album))
+    if year:
+        meta.append(str(year))
+    caption = " - ".join(meta)
     if caption:
         with st.container(key="chopthesong-track-meta"):
             st.caption(caption)
@@ -185,6 +206,15 @@ def main() -> None:
         [data-testid="stHeadingWithActionElements"] h3,
         [data-testid="stHeadingWithActionElements"] h3 span {
             color: #6E1414 !important;
+        }
+        [data-testid="stMarkdownContainer"] a,
+        [data-testid="stCaptionContainer"] a {
+            color: #EDEDED !important;
+            text-decoration: underline;
+        }
+        [data-testid="stHeadingWithActionElements"] a {
+            color: #6E1414 !important;
+            text-decoration: underline;
         }
         .st-key-chopthesong-artist-view [data-testid="stCaptionContainer"] {
             color: #6E1414 !important;

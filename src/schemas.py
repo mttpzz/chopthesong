@@ -65,6 +65,8 @@ class SampleNode(BaseModel):
     source: str
     # high: MusicBrainz "samples material"; medium: Wikipedia plus a quote.
     confidence: Literal["high", "medium"] = "high"
+    spotify_url: str | None = None
+    spotify_artist_url: str | None = None
     samples: list[SampleNode] = []
 
 
@@ -92,3 +94,7 @@ class TrackReport(BaseModel):
     samples: list[SampleNode] = []
     sources: list[str] = []
     notes: list[str] = []
+    # Filled outside the graph by service.add_spotify_links; None hides the link.
+    spotify_track_url: str | None = None
+    spotify_artist_url: str | None = None
+    spotify_album_url: str | None = None

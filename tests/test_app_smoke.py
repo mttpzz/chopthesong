@@ -100,3 +100,68 @@ def test_report_renders_the_tree_without_showing_evidence() -> None:
     assert any("Parent Sample" in text for text in texts)
     assert any("Child Sample" in text for text in texts)
     assert not any("SECRET WIKI EVIDENCE" in text for text in texts)
+    assert not any("](https://open.spotify.com" in text for text in texts)
+    assert any("Parent Artist" in text for text in texts)
+
+
+def test_report_names_become_spotify_links() -> None:
+    app = AppTest.from_file(str(APP), default_timeout=20)
+    app.session_state["result"] = {
+        "thread_id": "thread",
+        "status": "done",
+        "resolution": "auto",
+        "report": {
+            "track": {
+                "title": "Track Title",
+                "artist": "Artist",
+                "album": "Album",
+                "year": 2000,
+            },
+            "genres": [],
+            "samples": [
+                {
+                    "title": "Parent Sample",
+                    "artist": "Parent Artist",
+                    "source": "MusicBrainz",
+                    "confidence": "high",
+                    "spotify_url": "https://open.spotify.com/track/sample-1",
+                    "spotify_artist_url": (
+                        "https://open.spotify.com/artist/sample-artist-1"
+                    ),
+                    "samples": [],
+                }
+            ],
+            "sources": [],
+            "notes": [],
+            "spotify_track_url": "https://open.spotify.com/track/track-1",
+            "spotify_artist_url": "https://open.spotify.com/artist/artist-1",
+            "spotify_album_url": "https://open.spotify.com/album/album-1",
+        },
+    }
+
+    app.run()
+
+    assert not app.exception
+    subheaders = [item.value for item in app.subheader]
+    assert any(
+        "[Track Title](https://open.spotify.com/track/track-1)" in value
+        for value in subheaders
+    )
+    captions = [item.value for item in app.caption]
+    assert any(
+        "[Artist](https://open.spotify.com/artist/artist-1)" in value
+        for value in captions
+    )
+    assert any(
+        "[Album](https://open.spotify.com/album/album-1)" in value
+        for value in captions
+    )
+    markdowns = [item.value for item in app.markdown]
+    assert any(
+        "[Parent Sample](https://open.spotify.com/track/sample-1)" in value
+        for value in markdowns
+    )
+    assert any(
+        "[Parent Artist](https://open.spotify.com/artist/sample-artist-1)" in value
+        for value in markdowns
+    )

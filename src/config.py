@@ -30,6 +30,18 @@ class Settings(BaseSettings):
     langfuse_secret_key: str | None = None
     langfuse_host: str = "https://cloud.langfuse.com"
 
+    # Spotify Web API (optional). Client credentials only: no user login.
+    spotify_client_id: str | None = None
+    spotify_client_secret: str | None = None
+
+    @property
+    def spotify_enabled(self) -> bool:
+        """True only when both Spotify client credentials are configured."""
+        return bool(
+            (self.spotify_client_id or "").strip()
+            and (self.spotify_client_secret or "").strip()
+        )
+
     @property
     def cache_dir(self) -> Path:
         """Directory holding the on-disk HTTP cache."""
