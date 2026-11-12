@@ -83,3 +83,7 @@ Never commit these values:
 Top-level secrets are also exposed as environment variables, which is how
 `config.py` reads them. The server filesystem is ephemeral: the `data/` HTTP cache
 is lost on restart, so the first search after a restart is slower.
+
+## License
+
+Released under the [MIT License](LICENSE).
