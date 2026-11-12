@@ -1,12 +1,15 @@
 package dev.chopthesong.app
 
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.Message
 import android.view.View
+import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -63,16 +66,41 @@ class MainActivity : Activity() {
             domStorageEnabled = true
             allowFileAccess = false
             allowContentAccess = false
+            // Streamlit link taps arrive as new-window requests (target="_blank").
+            setSupportMultipleWindows(true)
+        }
+
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onCreateWindow(
+                view: WebView,
+                isDialog: Boolean,
+                isUserGesture: Boolean,
+                resultMsg: Message
+            ): Boolean {
+                // The app runs inside an iframe and every Markdown link has target="_blank",
+                // so a tap arrives here as a new-window request instead of as a navigation.
+                // The popup only exists to reveal the URL: it is opened outside the app.
+                val transport = resultMsg.obj as? WebView.WebViewTransport ?: return false
+                val popup = WebView(this@MainActivity)
+                popup.webViewClient = object : WebViewClient() {
+                    override fun shouldOverrideUrlLoading(
+                        popupView: WebView,
+                        request: WebResourceRequest
+                    ): Boolean {
+                        openLink(request.url)
+                        popupView.destroy()
+                        return true
+                    }
+                }
+                transport.webView = popup
+                resultMsg.sendToTarget()
+                return true
+            }
         }
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                val uri = request.url
-                if (uri.scheme == "https" && uri.host in allowedHosts) {
-                    return false
-                }
-                // Anything outside the Space opens in the system browser.
-                startActivity(Intent(Intent.ACTION_VIEW, uri))
+                openLink(request.url)
                 return true
             }
 
@@ -104,6 +132,22 @@ class MainActivity : Activity() {
 
     private fun loadSpace() {
         webView.loadUrl(BuildConfig.SPACE_URL)
+    }
+
+    /**
+     * Opens a link the app does not host in the system browser, or in the app that claims it
+     * (Spotify, for a track page). Links inside the Space stay in the WebView.
+     */
+    private fun openLink(uri: Uri) {
+        if (uri.scheme == "https" && uri.host in allowedHosts) {
+            webView.loadUrl(uri.toString())
+            return
+        }
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, uri))
+        } catch (error: ActivityNotFoundException) {
+            // No browser installed: leave the page as it is instead of crashing.
+        }
     }
 
     private fun showMessage(text: String) {
