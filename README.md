@@ -1,5 +1,7 @@
 # Chop the Song
 
+[![CI](https://github.com/mttpzz/chopthesong/actions/workflows/ci.yml/badge.svg)](https://github.com/mttpzz/chopthesong/actions/workflows/ci.yml)
+
 Extract a title and artist from a free-text request, resolve the track on MusicBrainz,
 and ask the user to choose when the search is ambiguous. The report (genres, lyrics,
 samples) and the UI are the next steps.
