@@ -1,4 +1,4 @@
-# ChopSongs
+# Chop the Song
 
 Extract a title and artist from a free-text request, resolve the track on MusicBrainz,
 and ask the user to choose when the search is ambiguous. The report (genres, lyrics,

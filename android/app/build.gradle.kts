@@ -6,18 +6,18 @@ plugins {
 }
 
 android {
-    namespace = "dev.chopsongs.app"
+    namespace = "dev.chopthesong.app"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "dev.chopsongs.app"
+        applicationId = "dev.chopthesong.app"
         minSdk = 24
         targetSdk = 37
         versionCode = 1
         versionName = "0.1.0"
 
         // Public app URL (Streamlit Community Cloud).
-        buildConfigField("String", "SPACE_URL", "\"https://chopsongs.streamlit.app/\"")
+        buildConfigField("String", "SPACE_URL", "\"https://chopthesong.streamlit.app/\"")
     }
 
     buildFeatures {

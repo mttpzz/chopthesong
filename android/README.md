@@ -1,7 +1,7 @@
 # Android app (WebView on Streamlit Community Cloud)
 
-The app is a single screen: a WebView that loads the public ChopSongs app at
-`https://chopsongs.streamlit.app/`. It contains no API keys and performs no search itself.
+The app is a single screen: a WebView that loads the public Chop the Song app at
+`https://chopthesong.streamlit.app/`. It contains no API keys and performs no search itself.
 The Python backend and UI live on Streamlit Community Cloud.
 
 ## Status
@@ -13,12 +13,12 @@ distribution and is not written by hand.
 ## Setup (once)
 
 1. In Android Studio: **New Project → Empty Views Activity**.
-   - Name: `chopsongs`
-   - Package name: `dev.chopsongs.app`
+   - Name: `chopthesong`
+   - Package name: `dev.chopthesong.app`
    - Language: Kotlin
    - Minimum SDK: API 24
    - Save location: a new folder **outside** the repo, for example
-     `C:\Users\Matteo\Downloads\chopsongs-android-template`. Studio will not
+     `C:\Users\Matteo\Downloads\chopthesong-android-template`. Studio will not
      create a project in a non-empty folder such as this `android/`.
    - After the first sync, copy the generated Gradle files (`gradlew`, `gradlew.bat`,
      `gradle/`, root `build.gradle.kts`, `settings.gradle.kts`, `gradle.properties`) into
@@ -27,12 +27,12 @@ distribution and is not written by hand.
    `build.gradle.kts` and `gradle/libs.versions.toml`, if present. Keep them.
 3. Replace the generated files with the ones in this folder:
    - `app/src/main/AndroidManifest.xml`
-   - `app/src/main/java/dev/chopsongs/app/MainActivity.kt`
+   - `app/src/main/java/dev/chopthesong/app/MainActivity.kt`
    - `app/src/main/res/layout/activity_main.xml`
    - `app/src/main/res/values/strings.xml`
    - `app/build.gradle.kts`: keep the plugin versions Studio generated, change only the
      parts that differ. The file here has no versions on purpose.
-4. The URL is already set in `app/build.gradle.kts` (`SPACE_URL = https://chopsongs.streamlit.app/`).
+4. The URL is already set in `app/build.gradle.kts` (`SPACE_URL = https://chopthesong.streamlit.app/`).
    Change it only if the app address changes.
 
 ## Build
@@ -48,7 +48,7 @@ From the terminal (after Studio has created the wrapper):
 
 ## Behaviour
 
-- Only `https` links on the app's host (`chopsongs.streamlit.app`) and on the Streamlit login
+- Only `https` links on the app's host (`chopthesong.streamlit.app`) and on the Streamlit login
   host (`share.streamlit.io`) open in the WebView. Other links open in the browser.
 - A page that does not finish within 60 seconds shows "The app is waking up…" with a Retry
   button. The app pauses after a period of inactivity on the free tier, so the first open can

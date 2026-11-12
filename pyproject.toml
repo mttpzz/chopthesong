@@ -1,7 +1,7 @@
 [project]
-name = "chopsongs"
+name = "chopthesong"
 version = "0.1.0"
-description = "ChopSongs — chop a track into its parts: samples, lyrics, genres and credits."
+description = "Chop the Song — chop a track into its parts: samples, lyrics, genres and credits."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [

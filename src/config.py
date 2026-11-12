@@ -14,7 +14,7 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    user_agent: str = "chopsongs/0.1 ( https://example.invalid )"
+    user_agent: str = "chopthesong/0.1 ( https://example.invalid )"
     data_dir: Path = Path("data")
     cache_ttl_seconds: int = 60 * 60 * 24 * 30  # 30 days of cached API responses.
     musicbrainz_min_interval: float = 1.05  # MusicBrainz allows one request per second.

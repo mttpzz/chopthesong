@@ -1,4 +1,4 @@
-package dev.chopsongs.app
+package dev.chopthesong.app
 
 import android.app.Activity
 import android.content.Intent
@@ -16,7 +16,7 @@ import android.widget.ProgressBar
 import android.widget.TextView
 
 /**
- * Single screen: a WebView that loads the public ChopSongs app on Streamlit Community Cloud.
+ * Single screen: a WebView that loads the public Chop the Song app on Streamlit Community Cloud.
  * The app holds no API keys and does no search itself.
  */
 class MainActivity : Activity() {
