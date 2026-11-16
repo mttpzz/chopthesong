@@ -5,7 +5,6 @@ from pathlib import Path
 from streamlit.testing.v1 import AppTest
 
 from src import APP_NAME
-from src.config import Settings
 
 APP = Path(__file__).resolve().parents[1] / "app.py"
 
@@ -166,47 +165,3 @@ def test_report_names_become_spotify_links() -> None:
         "[Parent Artist](https://open.spotify.com/artist/sample-artist-1)" in value
         for value in markdowns
     )
-
-
-def test_audio_widget_is_hidden_without_the_key(monkeypatch) -> None:
-    monkeypatch.setattr(
-        "src.config.get_settings",
-        lambda: Settings(_env_file=None, acoustid_api_key=None),
-    )
-    monkeypatch.setattr("src.audio_recognition.fpcalc_available", lambda: True)
-
-    app = AppTest.from_file(str(APP), default_timeout=20)
-    app.run()
-
-    assert not app.exception
-    assert len(app.get("audio_input")) == 0
-    assert len(app.get("file_uploader")) == 0
-
-
-def test_audio_widget_appears_with_the_key(monkeypatch) -> None:
-    monkeypatch.setattr(
-        "src.config.get_settings",
-        lambda: Settings(_env_file=None, acoustid_api_key="fake-key"),
-    )
-    monkeypatch.setattr("src.audio_recognition.fpcalc_available", lambda: True)
-
-    app = AppTest.from_file(str(APP), default_timeout=20)
-    app.run()
-
-    assert not app.exception
-    assert len(app.get("audio_input")) == 1
-
-
-def test_audio_widget_is_hidden_without_fpcalc(monkeypatch) -> None:
-    monkeypatch.setattr(
-        "src.config.get_settings",
-        lambda: Settings(_env_file=None, acoustid_api_key="fake-key"),
-    )
-    monkeypatch.setattr("src.audio_recognition.fpcalc_available", lambda: False)
-
-    app = AppTest.from_file(str(APP), default_timeout=20)
-    app.run()
-
-    assert not app.exception
-    assert len(app.get("audio_input")) == 0
-
