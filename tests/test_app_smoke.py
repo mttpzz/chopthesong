@@ -49,6 +49,28 @@ def test_search_form_submits_the_typed_values(monkeypatch) -> None:
     assert calls == [("The Message", "Grandmaster Flash")]
 
 
+def test_shazam_link_is_offered_under_the_search_form() -> None:
+    app = AppTest.from_file(str(APP), default_timeout=20)
+    app.run()
+
+    assert not app.exception
+    links = app.link_button
+    assert len(links) == 1
+    assert links[0].label == "Identify with Shazam"
+    assert links[0].url == "https://www.shazam.com/"
+    assert any(
+        caption.value
+        == (
+            "Don't know the song? Identify it with Shazam, "
+            "then type the title and artist above."
+        )
+        for caption in app.caption
+    )
+    # The link sits outside the form, so Enter and "Search" still submit it.
+    assert len(app.form[0].link_button) == 0
+    assert [button.label for button in app.form_submit_button] == ["Search"]
+
+
 def test_report_renders_the_tree_without_showing_evidence() -> None:
     app = AppTest.from_file(str(APP), default_timeout=20)
     app.session_state["result"] = {

@@ -271,6 +271,12 @@ def main() -> None:
         artist = st.text_input("Artist (optional)", key="artist_input")
         submitted = st.form_submit_button("Search", type="primary")
 
+    # A plain external link, kept outside the form so Enter still submits it.
+    st.caption(
+        "Don't know the song? Identify it with Shazam, then type the title and artist above."
+    )
+    st.link_button("Identify with Shazam", "https://www.shazam.com/")
+
     if submitted:
         if song.strip():
             _run_search(song.strip(), artist.strip() or None)
