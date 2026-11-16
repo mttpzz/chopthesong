@@ -65,29 +65,85 @@ class Http:
         limiter: RateLimiter | None = None,
         ttl: int | None = None,
         retry_transient: bool = True,
+        cache: bool = True,
     ) -> Any:
-        """Fetch JSON, reusing a cached response while it is still fresh.
+        """Fetch JSON with GET, reusing a cached response while it is still fresh.
 
         Responses are keyed by URL and sorted params. Free APIs cannot absorb
         repeated calls, so caching matters as much as the rate limiter.
         ``headers`` are sent with the request but never enter the cache key, so
         a refreshed bearer token still reuses the cached body. Set
         ``retry_transient`` to false when the caller owns the retry policy.
+        Set ``cache`` to false for responses that must never reach the disk.
         """
-        # Sorting the params keeps equivalent requests on the same cache key.
-        key = hashlib.sha256(
-            json.dumps([url, sorted((params or {}).items())], default=str).encode()
-        ).hexdigest()
-        entry = self._cache.get(key)
-        if entry and entry["expires"] > time.time():
-            return entry["value"]
+        return await self._json(
+            "GET",
+            url,
+            params=params,
+            headers=headers,
+            limiter=limiter,
+            ttl=ttl,
+            retry_transient=retry_transient,
+            cache=cache,
+        )
+
+    async def post_json(
+        self,
+        url: str,
+        data: dict[str, Any] | None = None,
+        *,
+        headers: dict[str, str] | None = None,
+        limiter: RateLimiter | None = None,
+        ttl: int | None = None,
+        retry_transient: bool = True,
+        cache: bool = True,
+    ) -> Any:
+        """Send a form-encoded POST and parse the JSON response.
+
+        Cache, retry and error rules are the same as ``get_json``. Set
+        ``cache`` to false when neither the body nor the response may leave a
+        trace on disk, as for audio fingerprints.
+        """
+        return await self._json(
+            "POST",
+            url,
+            data=data,
+            headers=headers,
+            limiter=limiter,
+            ttl=ttl,
+            retry_transient=retry_transient,
+            cache=cache,
+        )
+
+    async def _json(
+        self,
+        method: str,
+        url: str,
+        *,
+        params: dict[str, Any] | None = None,
+        data: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        limiter: RateLimiter | None = None,
+        ttl: int | None = None,
+        retry_transient: bool = True,
+        cache: bool = True,
+    ) -> Any:
+        """Perform one GET or POST request and return its JSON body."""
+        key = self._cache_key(method, url, params, data) if cache else None
+        if key is not None:
+            entry = self._cache.get(key)
+            if entry and entry["expires"] > time.time():
+                return entry["value"]
 
         # Retry only transient throttling; other errors should fail fast.
         response = None
         for attempt in range(3):
             if limiter:
                 await limiter.wait()
-            response = await self._client.get(url, params=params, headers=headers)
+            if method == "POST":
+                response = await self._client.post(url, data=data, headers=headers)
+            else:
+                response = await self._client.get(url, params=params, headers=headers)
             if (
                 retry_transient
                 and response.status_code in {429, 503}
@@ -101,8 +157,23 @@ class Http:
         response.raise_for_status()
         value = response.json()
         # Each entry keeps its own expiry, so callers can ask for a shorter TTL.
-        self._cache.set(
-            key,
-            {"expires": time.time() + (ttl if ttl is not None else self._ttl), "value": value},
-        )
+        if key is not None:
+            expires = time.time() + (ttl if ttl is not None else self._ttl)
+            self._cache.set(key, {"expires": expires, "value": value})
         return value
+
+    @staticmethod
+    def _cache_key(
+        method: str,
+        url: str,
+        params: dict[str, Any] | None,
+        data: dict[str, Any] | None,
+    ) -> str:
+        """Hash a request into a cache key; a POST body is part of it.
+
+        GET keys keep their previous format, so existing caches stay valid.
+        """
+        parts: list[Any] = [url, sorted((params or {}).items())]
+        if method != "GET":
+            parts = [method, *parts, sorted((data or {}).items())]
+        return hashlib.sha256(json.dumps(parts, default=str).encode()).hexdigest()

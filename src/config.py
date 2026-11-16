@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     spotify_client_id: str | None = None
     spotify_client_secret: str | None = None
 
+    # AcoustID (optional). Empty disables audio recognition entirely.
+    acoustid_api_key: str | None = None
+
     @property
     def spotify_enabled(self) -> bool:
         """True only when both Spotify client credentials are configured."""
@@ -41,6 +44,11 @@ class Settings(BaseSettings):
             (self.spotify_client_id or "").strip()
             and (self.spotify_client_secret or "").strip()
         )
+
+    @property
+    def acoustid_enabled(self) -> bool:
+        """True only when an AcoustID application key is configured."""
+        return bool((self.acoustid_api_key or "").strip())
 
     @property
     def cache_dir(self) -> Path:

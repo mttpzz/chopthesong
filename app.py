@@ -7,13 +7,23 @@ starts from scratch and nothing is written to disk.
 
 from __future__ import annotations
 
+import hashlib
+import logging
 from typing import Any
 
 import streamlit as st
 from langgraph.checkpoint.memory import InMemorySaver
 
 from src import APP_NAME
+from src.audio_recognition import AudioRecognitionError, fpcalc_available, recognize
+from src.config import get_settings
 from src.service import resume_search, start_search
+
+logger = logging.getLogger(__name__)
+
+NO_MATCH_MESSAGE = "No match found. Try typing the song name."
+AUDIO_ERROR_MESSAGE = "Audio recognition is unavailable right now. Try typing the song name."
+AUDIO_LABEL = "Or record a clip from the song"
 
 
 def _init_state() -> None:
@@ -56,6 +66,55 @@ def _run_resume(thread_id: str, *, index: int | None = None, cancel: bool = Fals
 def _unique(values: list[str]) -> list[str]:
     """Drop repeated labels while keeping the original order."""
     return list(dict.fromkeys(values))
+
+
+def _apply_pending_fill() -> None:
+    """Put a recognized track in the text fields before the widgets exist."""
+    pending = st.session_state.pop("audio_fill", None)
+    if pending:
+        st.session_state["song_input"] = pending[0]
+        st.session_state["artist_input"] = pending[1]
+
+
+def _audio_widget():
+    """Return the clip widget: the microphone when available, else a file upload."""
+    if hasattr(st, "audio_input"):
+        return st.audio_input(AUDIO_LABEL)
+    return st.file_uploader(AUDIO_LABEL, type=["mp3", "wav", "m4a"])
+
+
+def _handle_audio(clip) -> None:
+    """Recognize one clip and start the normal search, at most once per clip."""
+    if clip is None:
+        # Clearing the widget also clears the guard, so the same audio can be
+        # recorded again later.
+        st.session_state.pop("audio_digest", None)
+        return
+    audio_bytes = clip.getvalue()
+    # The widget keeps its clip across reruns, so the same recording would
+    # start a search on every rerun. The digest lives in memory only.
+    digest = hashlib.sha256(audio_bytes).hexdigest()
+    if st.session_state.get("audio_digest") == digest:
+        return
+    st.session_state["audio_digest"] = digest
+
+    try:
+        with st.spinner("Listening..."):
+            match = recognize(audio_bytes, get_settings())
+    except AudioRecognitionError:
+        st.error(AUDIO_ERROR_MESSAGE)
+        return
+    except Exception as exc:  # an unreadable clip must not break the page
+        logger.warning("Audio recognition failed (%s)", type(exc).__name__)
+        st.error(AUDIO_ERROR_MESSAGE)
+        return
+
+    if match is None:
+        st.warning(NO_MATCH_MESSAGE)
+        return
+
+    st.session_state["audio_fill"] = (match.title, match.artist)
+    _run_search(match.title, match.artist or None)
 
 
 def _candidate_label(item: dict[str, Any]) -> str:
@@ -261,6 +320,7 @@ def main() -> None:
         unsafe_allow_html=True,
     )
     _init_state()
+    _apply_pending_fill()
 
     st.title(APP_NAME)
     with st.container(key="chopthesong-subtitle"):
@@ -276,6 +336,10 @@ def main() -> None:
             _run_search(song.strip(), artist.strip() or None)
         else:
             st.warning("Type a song first.")
+
+    settings = get_settings()
+    if settings.acoustid_enabled and fpcalc_available():
+        _handle_audio(_audio_widget())
 
     result = st.session_state["result"]
     if not result:
