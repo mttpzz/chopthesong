@@ -19,6 +19,27 @@ def test_app_renders_without_exceptions() -> None:
     assert app.text_input[1].label == "Artist (optional)"
 
 
+def test_intro_animation_plays_once_per_session() -> None:
+    app = AppTest.from_file(str(APP), default_timeout=20)
+    app.run()
+
+    assert not app.exception
+    intros = [item.value for item in app.markdown if "chopthesong-intro" in item.value]
+    assert len(intros) == 1
+    # A full-page overlay, and the reduced-motion branch in the same block.
+    assert "position: fixed" in intros[0]
+    assert "prefers-reduced-motion" in intros[0]
+    assert app.text_input[0].label == "Song"
+
+    # A second run in the same session is an interaction: the page only.
+    app.run()
+
+    assert not app.exception
+    assert not [item.value for item in app.markdown if "chopthesong-intro" in item.value]
+    assert app.text_input[0].label == "Song"
+    assert app.form_submit_button[0].label == "Search"
+
+
 def test_search_form_submits_the_typed_values(monkeypatch) -> None:
     calls: list[tuple[str, str | None]] = []
 

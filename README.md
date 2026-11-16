@@ -40,6 +40,47 @@ uv run ruff check .
 
 Tests use fake clients and fake models: no real calls.
 
+## Evaluation
+
+`scripts/evaluate.py` scores the resolver on a fixed dataset of 12 tracks whose
+MusicBrainz IDs are confirmed by hand. It calls the same service functions the UI
+uses, one track at a time, and writes metrics to `data/eval/` (JSON and Markdown).
+Output contains counts, outcomes and identifiers only: no query, song or
+encyclopedia text.
+
+```powershell
+uv run python scripts/evaluate.py --dry-run   # validate the dataset, no network
+uv run python scripts/evaluate.py             # full run, writes data/eval/
+```
+
+Latest results: **2026-11-16**, `REPORT_DEPTH=2`, 12 of 12 tracks. The first full run
+completed 11 tracks; `stronger` hit the Groq free-tier daily limit and was re-run on the same day
+after the quota reset. Dataset version `sha256:470ba6a88b6dbfb26c40113e11286b4d80d97fae1681233d68600e8ce6b3adc8`.
+
+| id | outcome | Wikipedia samples | Error |
+| --- | --- | --- | --- |
+| bohemian-rhapsody | resolved | 0 | - |
+| praise-you | resolved | 8 | - |
+| stronger | resolved | 0 | - |
+| around-the-world | resolved | 0 | - |
+| smells-like-teen-spirit | resolved | 0 | - |
+| rappers-delight | resolved | 2 | - |
+| walk-this-way | resolved | 0 | - |
+| amen-brother | resolved | 0 | - |
+| billie-jean | resolved | 0 | - |
+| gangstas-paradise | resolved | 1 | - |
+| hey-ya | resolved | 0 | - |
+| blue-monday | resolved | 1 | - |
+
+Totals, with the same formulas the script uses:
+
+- Resolution OK: 12/12 (100.0%)
+- Has genres: 12/12 (100.0%)
+- Has summary: 12/12 (100.0%)
+- Summary status: ok 12
+- MB samples recall (mean): - (the dataset lists no expected sample MBIDs)
+- Errors 0, ambiguous 0, not found 0, cancelled 0, wrong track 0, unverified 0
+
 ## Structure
 
 ```

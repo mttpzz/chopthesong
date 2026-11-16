@@ -15,6 +15,121 @@ from langgraph.checkpoint.memory import InMemorySaver
 from src import APP_NAME
 from src.service import resume_search, start_search
 
+# Opening animation: the Android icon note, cut into four diagonal pieces.
+# Pure HTML, SVG and CSS, rendered with st.markdown(unsafe_allow_html=True)
+# because st.html sanitizes the SVG away. Nothing blocks the first render.
+INTRO_HTML = """
+<div class="chopthesong-intro" aria-hidden="true">
+  <svg class="chopthesong-intro-note" viewBox="0 0 120 120">
+    <defs>
+      <clipPath id="chopthesong-cut-1"><polygon points="0,0 120,0 120,18 0,84"/></clipPath>
+      <clipPath id="chopthesong-cut-2"><polygon points="0,84 120,18 120,36 0,102"/></clipPath>
+      <clipPath id="chopthesong-cut-3"><polygon points="0,102 120,36 120,54 0,120"/></clipPath>
+      <clipPath id="chopthesong-cut-4"><polygon points="0,120 120,54 120,120"/></clipPath>
+    </defs>
+    <g class="chopthesong-intro-appear">
+      <g class="chopthesong-intro-piece chopthesong-intro-piece-1"
+         clip-path="url(#chopthesong-cut-1)">
+        <ellipse cx="48" cy="92" rx="27" ry="19" transform="rotate(-20 48 92)"/>
+        <rect x="68" y="26" width="10" height="70"/>
+        <path d="M78 26 C96 30 110 44 112 60 L112 76 C102 64 90 56 78 52 Z"/>
+      </g>
+      <g class="chopthesong-intro-piece chopthesong-intro-piece-2"
+         clip-path="url(#chopthesong-cut-2)">
+        <ellipse cx="48" cy="92" rx="27" ry="19" transform="rotate(-20 48 92)"/>
+        <rect x="68" y="26" width="10" height="70"/>
+        <path d="M78 26 C96 30 110 44 112 60 L112 76 C102 64 90 56 78 52 Z"/>
+      </g>
+      <g class="chopthesong-intro-piece chopthesong-intro-piece-3"
+         clip-path="url(#chopthesong-cut-3)">
+        <ellipse cx="48" cy="92" rx="27" ry="19" transform="rotate(-20 48 92)"/>
+        <rect x="68" y="26" width="10" height="70"/>
+        <path d="M78 26 C96 30 110 44 112 60 L112 76 C102 64 90 56 78 52 Z"/>
+      </g>
+      <g class="chopthesong-intro-piece chopthesong-intro-piece-4"
+         clip-path="url(#chopthesong-cut-4)">
+        <ellipse cx="48" cy="92" rx="27" ry="19" transform="rotate(-20 48 92)"/>
+        <rect x="68" y="26" width="10" height="70"/>
+        <path d="M78 26 C96 30 110 44 112 60 L112 76 C102 64 90 56 78 52 Z"/>
+      </g>
+      <line class="chopthesong-intro-cut" x1="0" y1="102" x2="120" y2="36"
+            pathLength="1"/>
+    </g>
+  </svg>
+</div>
+<style>
+.chopthesong-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #121212;
+  pointer-events: none;
+  animation: chopthesong-intro-outro 2.5s ease-in-out forwards;
+}
+.chopthesong-intro-note {
+  width: min(46vmin, 320px);
+  height: min(46vmin, 320px);
+  overflow: visible;
+}
+.chopthesong-intro-piece ellipse,
+.chopthesong-intro-piece rect,
+.chopthesong-intro-piece path { fill: #6E1414; }
+.chopthesong-intro-appear {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: chopthesong-intro-in 0.6s ease-out both;
+}
+.chopthesong-intro-piece {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: chopthesong-piece 2.5s cubic-bezier(.2, .7, .2, 1) both;
+}
+.chopthesong-intro-piece-1 { --dx: -14px; --dy: -26px; --rot: -9deg; }
+.chopthesong-intro-piece-2 { --dx: 16px; --dy: -8px; --rot: 6deg; }
+.chopthesong-intro-piece-3 { --dx: -16px; --dy: 8px; --rot: -6deg; }
+.chopthesong-intro-piece-4 { --dx: 14px; --dy: 26px; --rot: 9deg; }
+.chopthesong-intro-cut {
+  stroke: #121212;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: chopthesong-cut 2.5s linear both;
+}
+@keyframes chopthesong-intro-in {
+  from { opacity: 0; transform: scale(.86); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes chopthesong-piece {
+  0%, 36% { transform: translate(0, 0) rotate(0deg); }
+  72%, 100% { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); }
+}
+@keyframes chopthesong-cut {
+  0%, 24% { stroke-dashoffset: 1; opacity: 0; }
+  26% { opacity: 1; }
+  36% { stroke-dashoffset: 0; opacity: 1; }
+  48%, 100% { stroke-dashoffset: 0; opacity: 0; }
+}
+@keyframes chopthesong-intro-outro {
+  0%, 72% { opacity: 1; visibility: visible; }
+  100% { opacity: 0; visibility: hidden; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chopthesong-intro { animation: chopthesong-intro-still 1s linear forwards; }
+  .chopthesong-intro-appear,
+  .chopthesong-intro-piece { animation: none; }
+  .chopthesong-intro-cut { display: none; }
+}
+@keyframes chopthesong-intro-still {
+  0%, 70% { opacity: 1; visibility: visible; }
+  100% { opacity: 0; visibility: hidden; }
+}
+</style>
+"""
+
 
 def _init_state() -> None:
     """Create the session objects once per browser session."""
@@ -39,6 +154,21 @@ def _run_search(query: str, artist: str | None) -> None:
             checkpointer=st.session_state["checkpointer"],
         )
     st.rerun()
+
+
+def _render_intro() -> None:
+    """Play the opening animation once per session, then never again.
+
+    It is a full-page opaque overlay and the CSS owns its timing: the script
+    returns at once, the page is already built underneath, and the overlay fades
+    out to reveal it when the note has broken apart. ``st.html`` strips the inline
+    SVG through its DOMPurify profile, so the markup goes through ``st.markdown``
+    with raw HTML enabled instead.
+    """
+    if st.session_state.get("intro_done"):
+        return
+    st.session_state["intro_done"] = True
+    st.markdown(INTRO_HTML, unsafe_allow_html=True)
 
 
 def _run_resume(thread_id: str, *, index: int | None = None, cancel: bool = False) -> None:
@@ -261,6 +391,10 @@ def main() -> None:
         unsafe_allow_html=True,
     )
     _init_state()
+
+    # A new browser session starts with the note breaking apart; a rerun in the
+    # same session goes straight to the page.
+    _render_intro()
 
     st.title(APP_NAME)
     with st.container(key="chopthesong-subtitle"):
