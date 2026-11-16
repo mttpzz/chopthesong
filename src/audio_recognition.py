@@ -126,6 +126,7 @@ async def lookup(
     """
     data = await _request(fingerprint, duration, settings, http)
     candidate = _best_match(data)
+    _log_lookup(data, duration, len(fingerprint), candidate is not None)
     if candidate is None:
         return None
     title, artist, recording_id, score = candidate
@@ -201,6 +202,57 @@ def _artist_name(artists: list[dict] | None) -> str:
         f"{artist.get('name', '')}{artist.get('joinphrase', '')}"
         for artist in artists or []
     ).strip()
+
+
+def _summarize(data: dict) -> tuple[int, float | None, int, int]:
+    """Return result count, best score, results above the threshold, titled recordings."""
+    results = data.get("results") or []
+    scores: list[float] = []
+    above = 0
+    titled = 0
+    for result in results:
+        if not isinstance(result, dict):
+            continue
+        try:
+            score = float(result.get("score") or 0.0)
+        except (TypeError, ValueError):
+            continue
+        scores.append(score)
+        if score < MIN_SCORE:
+            continue
+        above += 1
+        for recording in result.get("recordings") or []:
+            if isinstance(recording, dict) and str(recording.get("title") or "").strip():
+                titled += 1
+    best = max(scores) if scores else None
+    return len(results), best, above, titled
+
+
+def _log_lookup(
+    data: dict,
+    duration: int,
+    fingerprint_chars: int,
+    matched: bool,
+) -> None:
+    """Log one summary line per lookup: counts and scores, never the payload.
+
+    The line deliberately leaves out the fingerprint, the API key, the raw
+    response, the title and the artist, so it is safe to paste into a report.
+    """
+    results, best, above, titled = _summarize(data)
+    logger.log(
+        logging.INFO if matched else logging.WARNING,
+        "AcoustID lookup: status=%s results=%s best_score=%s above_threshold=%s "
+        "titled=%s match=%s duration=%ss fingerprint_chars=%s",
+        data.get("status"),
+        results,
+        "none" if best is None else f"{best:.3f}",
+        above,
+        titled,
+        matched,
+        duration,
+        fingerprint_chars,
+    )
 
 
 async def _confirm(

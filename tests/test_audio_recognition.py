@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from pathlib import Path
 from urllib.parse import parse_qs
 
@@ -326,3 +327,121 @@ async def test_lookup_maps_an_api_error_to_a_typed_error(tmp_path, http) -> None
         await lookup(THE_FINGERPRINT, 60, settings(tmp_path), http)
 
     assert FAKE_KEY not in str(error.value)
+
+
+def _lookup_lines(caplog) -> list[logging.LogRecord]:
+    return [
+        record
+        for record in caplog.records
+        if "AcoustID lookup" in record.getMessage()
+    ]
+
+
+@respx.mock
+async def test_lookup_logs_one_summary_line_for_a_match(
+    tmp_path, http, caplog, monkeypatch
+) -> None:
+    async def fake_lookup(self, mbid, *, inc=""):
+        return {
+            "id": mbid,
+            "title": "SECRET TITLE",
+            "artist-credit": [{"name": "SECRET ARTIST"}],
+            "releases": [],
+        }
+
+    monkeypatch.setattr(
+        "src.audio_recognition.MusicBrainzClient.lookup_recording", fake_lookup
+    )
+    respx.post(ACOUSTID_URL).mock(
+        return_value=acoustid_response(
+            [
+                {
+                    "score": 0.31,
+                    "recordings": [{"title": "SECRET TITLE"}],
+                },
+                {
+                    "score": 0.92,
+                    "recordings": [
+                        {
+                            "id": "mbid",
+                            "title": "SECRET TITLE",
+                            "artists": [{"name": "SECRET ARTIST"}],
+                        }
+                    ],
+                },
+            ]
+        )
+    )
+    fingerprint_value = "SECRET-FINGERPRINT-VALUE"
+
+    with caplog.at_level(logging.INFO, logger="src.audio_recognition"):
+        result = await lookup(fingerprint_value, 30, settings(tmp_path), http)
+
+    assert result is not None
+    lines = _lookup_lines(caplog)
+    assert len(lines) == 1
+    record = lines[0]
+    assert record.levelno == logging.INFO
+    line = record.getMessage()
+    assert "status=ok" in line
+    assert "results=2" in line
+    assert "best_score=0.920" in line
+    assert "above_threshold=1" in line
+    assert "titled=1" in line
+    assert "match=True" in line
+    assert "duration=30s" in line
+    assert f"fingerprint_chars={len(fingerprint_value)}" in line
+    for secret in (fingerprint_value, FAKE_KEY, "SECRET TITLE", "SECRET ARTIST"):
+        assert secret not in line
+
+
+@respx.mock
+async def test_lookup_logs_low_scores_as_a_no_match(tmp_path, http, caplog) -> None:
+    respx.post(ACOUSTID_URL).mock(
+        return_value=acoustid_response(
+            [
+                {"score": 0.21, "recordings": [{"title": "SECRET TITLE"}]},
+                {"score": 0.07, "recordings": [{"title": "SECRET TITLE"}]},
+            ]
+        )
+    )
+    fingerprint_value = "SECRET-FINGERPRINT-VALUE"
+
+    with caplog.at_level(logging.INFO, logger="src.audio_recognition"):
+        result = await lookup(fingerprint_value, 12, settings(tmp_path), http)
+
+    assert result is None
+    lines = _lookup_lines(caplog)
+    assert len(lines) == 1
+    record = lines[0]
+    assert record.levelno == logging.WARNING
+    line = record.getMessage()
+    assert "status=ok" in line
+    assert "results=2" in line
+    assert "best_score=0.210" in line
+    assert "above_threshold=0" in line
+    assert "titled=0" in line
+    assert "match=False" in line
+    assert "duration=12s" in line
+    for secret in (fingerprint_value, FAKE_KEY, "SECRET TITLE"):
+        assert secret not in line
+
+
+@respx.mock
+async def test_lookup_logs_an_empty_response(tmp_path, http, caplog) -> None:
+    respx.post(ACOUSTID_URL).mock(return_value=acoustid_response([]))
+
+    with caplog.at_level(logging.INFO, logger="src.audio_recognition"):
+        result = await lookup("SECRET-FINGERPRINT-VALUE", 8, settings(tmp_path), http)
+
+    assert result is None
+    lines = _lookup_lines(caplog)
+    assert len(lines) == 1
+    line = lines[0].getMessage()
+    assert "results=0" in line
+    assert "best_score=none" in line
+    assert "above_threshold=0" in line
+    assert "titled=0" in line
+    assert "match=False" in line
+    assert "duration=8s" in line
+
