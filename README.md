@@ -268,7 +268,7 @@ scripts/evaluate.py     # evaluation runner
 eval/tracks.json        # fixed evaluation dataset
 tests/                  # pytest suite
 android/                # Kotlin WebView app
-.streamlit/config.toml  # dark theme with a deep red accent
+.streamlit/config.toml  # dark theme with a teal accent
 .github/workflows/ci.yml  # lint and test on every push
 ```
 

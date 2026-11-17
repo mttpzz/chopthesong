@@ -108,7 +108,7 @@ INTRO_HTML = """
 }
 .chopthesong-intro-piece ellipse,
 .chopthesong-intro-piece rect,
-.chopthesong-intro-piece path { fill: #6E1414; }
+.chopthesong-intro-piece path { fill: #189184; }
 .chopthesong-intro-appear {
   transform-box: fill-box;
   transform-origin: center;
@@ -376,7 +376,7 @@ def main() -> None:
         [data-testid="stHeadingWithActionElements"] h2 span,
         [data-testid="stHeadingWithActionElements"] h3,
         [data-testid="stHeadingWithActionElements"] h3 span {
-            color: #6E1414 !important;
+            color: #189184 !important;
         }
         [data-testid="stMarkdownContainer"] a,
         [data-testid="stCaptionContainer"] a {
@@ -384,11 +384,11 @@ def main() -> None:
             text-decoration: underline;
         }
         [data-testid="stHeadingWithActionElements"] a {
-            color: #6E1414 !important;
+            color: #189184 !important;
             text-decoration: underline;
         }
         .st-key-chopthesong-artist-view [data-testid="stCaptionContainer"] {
-            color: #6E1414 !important;
+            color: #189184 !important;
         }
         .st-key-chopthesong-subtitle [data-testid="stCaptionContainer"] {
             color: #EDEDED !important;
@@ -400,7 +400,7 @@ def main() -> None:
             opacity: 1 !important;
         }
         .st-key-chopthesong-notes [data-testid="stMarkdownContainer"] strong {
-            color: #6E1414 !important;
+            color: #189184 !important;
             font-size: 1.25rem !important;
         }
         .st-key-chopthesong-track-meta [data-testid="stCaptionContainer"] {
