@@ -131,6 +131,67 @@ async def test_header_links_are_filled_from_search() -> None:
     assert len(http.calls) == 3
 
 
+async def test_header_links_use_the_primary_artist() -> None:
+    # MusicBrainz credits "Stan" to "Eminem featuring Dido"; Spotify only knows
+    # the primary artist, so the full credit would make all three searches fail.
+    http = FakeHttp()
+    payload = report()
+    payload["track"]["artist"] = "Eminem featuring Dido"
+    payload["track"]["primary_artist"] = "Eminem"
+
+    await add_spotify_links(payload, settings(), http)
+
+    assert [call["q"] for call in http.calls[:3]] == [
+        "track:Song artist:Eminem",
+        "artist:Eminem",
+        "album:Album artist:Eminem",
+    ]
+    assert payload["spotify_track_url"] == "https://open.spotify.com/track/track-Song"
+    assert (
+        payload["spotify_artist_url"]
+        == "https://open.spotify.com/artist/artist-Eminem"
+    )
+    assert (
+        payload["spotify_album_url"]
+        == "https://open.spotify.com/album/album-Album"
+    )
+
+
+async def test_header_links_fall_back_to_the_full_artist_credit() -> None:
+    # Reports built before primary_artist existed must keep working.
+    http = FakeHttp()
+    payload = report()
+    payload["track"]["artist"] = "Solo Artist"
+
+    await add_spotify_links(payload, settings(), http)
+
+    assert http.calls[1]["q"] == "artist:Solo Artist"
+    assert payload["spotify_artist_url"] == "https://open.spotify.com/artist/artist-Solo"
+
+
+async def test_each_credited_artist_gets_its_own_link() -> None:
+    http = FakeHttp()
+    payload = report()
+    payload["track"]["artist"] = "Eminem featuring Dido"
+    payload["track"]["primary_artist"] = "Eminem"
+    payload["track"]["artist_credits"] = [
+        {"name": "Eminem", "joinphrase": " featuring "},
+        {"name": "Dido", "joinphrase": ""},
+    ]
+
+    await add_spotify_links(payload, settings(), http)
+
+    assert payload["spotify_artist_urls"] == [
+        "https://open.spotify.com/artist/artist-Eminem",
+        "https://open.spotify.com/artist/artist-Dido",
+    ]
+    # The primary artist URL is reused instead of searched twice.
+    assert [call["q"] for call in http.calls if call["q"].startswith("artist:")] == [
+        "artist:Eminem",
+        "artist:Dido",
+    ]
+
+
 async def test_nested_samples_get_their_links() -> None:
     http = FakeHttp()
     payload = report(

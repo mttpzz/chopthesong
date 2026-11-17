@@ -333,15 +333,24 @@ async def add_spotify_links(
             return
 
         track = report.get("track") or {}
+        # MusicBrainz credits can read "Eminem featuring Dido"; Spotify only
+        # matches the primary artist, so featured names would break every search.
+        artist = track.get("primary_artist") or track.get("artist")
         report["spotify_track_url"] = await client.find_track_url(
-            track.get("title"), track.get("artist")
+            track.get("title"), artist
         )
-        report["spotify_artist_url"] = await client.find_artist_url(
-            track.get("artist")
-        )
+        report["spotify_artist_url"] = await client.find_artist_url(artist)
         report["spotify_album_url"] = await client.find_album_url(
-            track.get("album"), track.get("artist")
+            track.get("album"), artist
         )
+        artist_urls: list[str | None] = []
+        for credit in track.get("artist_credits") or []:
+            name = credit.get("name")
+            if name and name == artist:
+                artist_urls.append(report["spotify_artist_url"])
+            else:
+                artist_urls.append(await client.find_artist_url(name))
+        report["spotify_artist_urls"] = artist_urls
         remaining = await _add_sample_track_links(
             report.get("samples") or [], client, _MAX_SAMPLE_SEARCHES
         )

@@ -47,6 +47,21 @@ def _link_or_text(label: Any, url: Any) -> str:
     safe_url = _https_url(url)
     return f"[{text}]({safe_url})" if safe_url else text
 
+
+def _artist_markup(track: dict[str, Any], report: dict[str, Any]) -> str:
+    """Render every credited artist as its own link, keeping the joinphrases."""
+    credits = track.get("artist_credits") or []
+    urls = report.get("spotify_artist_urls") or []
+    if not any(credit.get("name") for credit in credits):
+        return ""
+    parts: list[str] = []
+    for index, credit in enumerate(credits):
+        url = urls[index] if index < len(urls) else None
+        parts.append(_link_or_text(credit.get("name") or "", url))
+        parts.append(_md_text(credit.get("joinphrase") or ""))
+    return "".join(parts).strip()
+
+
 # Opening animation: the Android icon note, cut into four diagonal pieces.
 # Pure HTML, SVG and CSS, rendered with st.markdown(unsafe_allow_html=True)
 # because st.html sanitizes the SVG away. Nothing blocks the first render.
@@ -117,12 +132,17 @@ INTRO_HTML = """
 .chopthesong-intro-piece {
   transform-box: fill-box;
   transform-origin: center;
-  animation: chopthesong-piece 2.5s cubic-bezier(.2, .7, .2, 1) both;
+  animation-duration: 2.5s;
+  animation-timing-function: cubic-bezier(.2, .7, .2, 1);
+  animation-fill-mode: both;
 }
-.chopthesong-intro-piece-1 { --dx: -14px; --dy: -26px; --rot: -9deg; }
-.chopthesong-intro-piece-2 { --dx: 16px; --dy: -8px; --rot: 6deg; }
-.chopthesong-intro-piece-3 { --dx: -16px; --dy: 8px; --rot: -6deg; }
-.chopthesong-intro-piece-4 { --dx: 14px; --dy: 26px; --rot: 9deg; }
+/* One keyframes per piece: custom properties inside keyframes are ignored by
+   some WebViews, which then animates only the cut line and leaves the note
+   whole. Literal transforms work everywhere. */
+.chopthesong-intro-piece-1 { animation-name: chopthesong-piece-1; }
+.chopthesong-intro-piece-2 { animation-name: chopthesong-piece-2; }
+.chopthesong-intro-piece-3 { animation-name: chopthesong-piece-3; }
+.chopthesong-intro-piece-4 { animation-name: chopthesong-piece-4; }
 .chopthesong-intro-cut {
   stroke: #121212;
   stroke-width: 4;
@@ -135,18 +155,30 @@ INTRO_HTML = """
   from { opacity: 0; transform: scale(.86); }
   to { opacity: 1; transform: scale(1); }
 }
-@keyframes chopthesong-piece {
-  0%, 36% { transform: translate(0, 0) rotate(0deg); }
-  72%, 100% { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); }
+@keyframes chopthesong-piece-1 {
+  0%, 32% { transform: translate(0, 0) rotate(0deg); }
+  64%, 100% { transform: translate(-14px, -26px) rotate(-9deg); }
+}
+@keyframes chopthesong-piece-2 {
+  0%, 32% { transform: translate(0, 0) rotate(0deg); }
+  64%, 100% { transform: translate(16px, -8px) rotate(6deg); }
+}
+@keyframes chopthesong-piece-3 {
+  0%, 32% { transform: translate(0, 0) rotate(0deg); }
+  64%, 100% { transform: translate(-16px, 8px) rotate(-6deg); }
+}
+@keyframes chopthesong-piece-4 {
+  0%, 32% { transform: translate(0, 0) rotate(0deg); }
+  64%, 100% { transform: translate(14px, 26px) rotate(9deg); }
 }
 @keyframes chopthesong-cut {
-  0%, 24% { stroke-dashoffset: 1; opacity: 0; }
-  26% { opacity: 1; }
-  36% { stroke-dashoffset: 0; opacity: 1; }
+  0%, 22% { stroke-dashoffset: 1; opacity: 0; }
+  24% { opacity: 1; }
+  34% { stroke-dashoffset: 0; opacity: 1; }
   48%, 100% { stroke-dashoffset: 0; opacity: 0; }
 }
 @keyframes chopthesong-intro-outro {
-  0%, 72% { opacity: 1; visibility: visible; }
+  0%, 76% { opacity: 1; visibility: visible; }
   100% { opacity: 0; visibility: hidden; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -323,8 +355,10 @@ def _render_done(result: dict[str, Any]) -> None:
     year = track.get("year")
     meta: list[str] = []
     if artist:
-        artist_url = report.get("spotify_artist_url")
-        meta.append(_link_or_text(artist, artist_url))
+        meta.append(
+            _artist_markup(track, report)
+            or _link_or_text(artist, report.get("spotify_artist_url"))
+        )
     if album:
         album_url = report.get("spotify_album_url")
         meta.append(_link_or_text(album, album_url))
@@ -452,7 +486,11 @@ def main() -> None:
     st.caption(
         "Don't know the song? Identify it with Shazam, then type the title and artist above."
     )
-    st.link_button("Identify with Shazam", "https://www.shazam.com/")
+    st.link_button(
+        "Shazam",
+        "https://www.shazam.com/",
+        key="chopthesong-shazam",
+    )
 
     if submitted:
         song = song.strip()[:MAX_FIELD_CHARS]

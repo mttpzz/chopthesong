@@ -66,6 +66,10 @@ def test_parse_recording_joins_multiple_credits() -> None:
         }
     )
     assert track.artist == "A feat. B"
+    assert [(credit.name, credit.joinphrase) for credit in track.artist_credits] == [
+        ("A", " feat. "),
+        ("B", ""),
+    ]
 
 
 def test_lucene_escape() -> None:

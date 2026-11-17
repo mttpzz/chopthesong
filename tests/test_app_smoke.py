@@ -143,7 +143,7 @@ def test_shazam_link_is_offered_under_the_search_form() -> None:
     assert not app.exception
     links = app.link_button
     assert len(links) == 1
-    assert links[0].label == "Identify with Shazam"
+    assert links[0].label == "Shazam"
     assert links[0].url == "https://www.shazam.com/"
     assert any(
         caption.value
@@ -273,6 +273,48 @@ def test_report_names_become_spotify_links() -> None:
     assert any(
         "[Parent Artist](https://open.spotify.com/artist/sample-artist-1)" in value
         for value in markdowns
+    )
+
+
+def test_each_credited_artist_gets_its_own_spotify_link() -> None:
+    app = AppTest.from_file(str(APP), default_timeout=20)
+    app.session_state["result"] = {
+        "thread_id": "thread",
+        "status": "done",
+        "resolution": "auto",
+        "report": {
+            "track": {
+                "title": "Track Title",
+                "artist": "Eminem featuring Dido",
+                "artist_credits": [
+                    {"name": "Eminem", "joinphrase": " featuring "},
+                    {"name": "Dido", "joinphrase": ""},
+                ],
+                "album": "Album",
+                "year": 2000,
+            },
+            "genres": [],
+            "samples": [],
+            "sources": [],
+            "notes": [],
+            "spotify_track_url": "https://open.spotify.com/track/track-1",
+            "spotify_artist_url": "https://open.spotify.com/artist/eminem",
+            "spotify_artist_urls": [
+                "https://open.spotify.com/artist/eminem",
+                "https://open.spotify.com/artist/dido",
+            ],
+            "spotify_album_url": "https://open.spotify.com/album/album-1",
+        },
+    }
+
+    app.run()
+
+    assert not app.exception
+    captions = [item.value for item in app.caption]
+    assert any(
+        "[Eminem](https://open.spotify.com/artist/eminem) featuring "
+        "[Dido](https://open.spotify.com/artist/dido)" in value
+        for value in captions
     )
 
 

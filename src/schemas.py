@@ -9,6 +9,13 @@ from pydantic import BaseModel, Field
 SummaryStatus = Literal["ok", "empty", "leak_check", "not_attempted"]
 
 
+class ArtistCredit(BaseModel):
+    """One artist in a MusicBrainz credit and the text that follows it."""
+
+    name: str
+    joinphrase: str = ""
+
+
 class TrackRef(BaseModel):
     """A MusicBrainz recording reduced to the fields the app displays."""
 
@@ -16,6 +23,7 @@ class TrackRef(BaseModel):
     title: str
     artist: str
     primary_artist: str | None = None
+    artist_credits: list[ArtistCredit] = []
     year: int | None = None
     album: str | None = None
     duration_ms: int | None = None
@@ -97,4 +105,6 @@ class TrackReport(BaseModel):
     # Filled outside the graph by service.add_spotify_links; None hides the link.
     spotify_track_url: str | None = None
     spotify_artist_url: str | None = None
+    # One URL per track.artist_credits entry, so featured artists link separately.
+    spotify_artist_urls: list[str | None] = []
     spotify_album_url: str | None = None

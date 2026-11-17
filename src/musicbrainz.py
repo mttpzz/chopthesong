@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 
 from src.http import Http, RateLimiter
-from src.schemas import TrackRef
+from src.schemas import ArtistCredit, TrackRef
 
 BASE_URL = "https://musicbrainz.org/ws/2"
 
@@ -26,6 +26,13 @@ def parse_recording(recording: dict) -> TrackRef:
     artist = "".join(
         f"{credit.get('name', '')}{credit.get('joinphrase', '')}" for credit in credits
     ).strip()
+    artist_credits = [
+        ArtistCredit(
+            name=str(credit.get("name") or ""),
+            joinphrase=str(credit.get("joinphrase") or ""),
+        )
+        for credit in credits
+    ]
 
     releases = recording.get("releases") or []
     # Compilations are a fallback only: their date is rarely the original one.
@@ -39,6 +46,7 @@ def parse_recording(recording: dict) -> TrackRef:
         title=recording.get("title") or "",
         artist=artist or "Unknown artist",
         primary_artist=(credits[0].get("name") if credits else None),
+        artist_credits=artist_credits,
         # Album, year and release group all come from the same preferred release.
         year=_year_from(preferred.get("date")),
         album=preferred.get("title"),
