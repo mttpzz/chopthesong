@@ -18,8 +18,8 @@ builds a report with:
   the lyrics returned by LRCLIB.
 - **Samples**, explored level by level: each sample can have its own samples, up to
   `REPORT_DEPTH` rounds (0 disables, 3 is the maximum).
-- **Spotify links** for the track, artist, album and samples, when client credentials
-  are configured.
+- **Spotify links** for the track, the album, the samples and every credited artist,
+  when client credentials are configured: "Eminem featuring Dido" links both names.
 - **Wikipedia** as the source for sample evidence and background.
 
 A **Shazam** link sits under the search form for the case where you hear a song and
@@ -166,8 +166,9 @@ uv run pytest
 uv run ruff check .
 ```
 
-The suite has 201 tests. Tests use fake HTTP clients and fake LLM objects: they make
-no real calls and need no keys.
+The suite has 222 tests. Tests use fake HTTP clients and fake LLM objects: they make
+no real calls and need no keys. Three cache-permission tests skip on Windows, which
+does not report POSIX permission bits.
 
 ## Evaluation
 
