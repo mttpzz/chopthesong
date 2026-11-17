@@ -9,6 +9,7 @@ import httpx
 import pytest
 
 from src.llm import INTERNAL_MESSAGE, UNEXPECTED_MESSAGE, llm_failure_message
+from src.logging_utils import log_failure
 from src.resolver import _source_result
 
 
@@ -54,3 +55,36 @@ def test_source_bug_is_logged_and_counts_as_missing(caplog: pytest.LogCaptureFix
 
 def test_source_value_passes_through_unchanged() -> None:
     assert _source_result("Deezer", ["Rock"], default=[]) == ["Rock"]
+
+
+LOGGER = logging.getLogger("tests.error_handling")
+
+
+def test_http_error_is_logged_by_type_without_the_url(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    error = httpx.ConnectError(
+        "request to https://musicbrainz.org/ws/2?query=Secret+Song failed"
+    )
+
+    with caplog.at_level(logging.ERROR, logger=LOGGER.name):
+        log_failure(LOGGER, "MusicBrainz lookup failed", error)
+
+    assert caplog.records
+    record = caplog.records[-1]
+    assert record.getMessage() == "MusicBrainz lookup failed (ConnectError)"
+    assert record.exc_info is None
+    assert "Secret" not in caplog.text
+    assert "musicbrainz.org" not in caplog.text
+
+
+def test_internal_bug_keeps_the_traceback(caplog: pytest.LogCaptureFixture) -> None:
+    error = ValueError("bad state")
+
+    with caplog.at_level(logging.ERROR, logger=LOGGER.name):
+        log_failure(LOGGER, "Unexpected error", error)
+
+    record = caplog.records[-1]
+    assert record.getMessage() == "Unexpected error"
+    assert record.exc_info is not None
+    assert record.exc_info[0] is ValueError

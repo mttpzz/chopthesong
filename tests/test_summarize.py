@@ -4,6 +4,7 @@ from typing import Any
 
 import groq
 import httpx
+import pytest
 
 from src.llm import WAIT_NOTICE
 from src.resolver import _summarize
@@ -236,3 +237,18 @@ async def test_prompt_contains_capped_lyrics_and_wiki_blocks() -> None:
     assert "<wiki>" in prompt and "</wiki>" in prompt
     assert "x" * 4000 in prompt and "x" * 4001 not in prompt
     assert "w" * 9000 in prompt and "w" * 9001 not in prompt
+
+
+async def test_missing_summary_raises_runtime_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # With no attempts the loop leaves `summary` as None and the explicit
+    # check must raise, even when Python runs with -O.
+    monkeypatch.setattr("src.resolver.SUMMARY_ATTEMPTS", 0)
+    llm = FakeSummaryLlm(LyricsSummary(topic="unused", summary="unused"))
+    node = _summarize(FakeRuntime(llm), sleep=FakeSleep())
+
+    with pytest.raises(RuntimeError, match="without a summary"):
+        await node(state())
+
+    assert llm.calls == 0

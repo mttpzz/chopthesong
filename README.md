@@ -92,7 +92,7 @@ development assistants are listed separately under [Development tools](#developm
 | | Pydantic 2.14.2 | Report and extraction schemas. |
 | | Pydantic Settings 2.16.2 | Environment and `.env` configuration (`src/config.py`). |
 | | HTTPX 0.28.1 | Async HTTP client for every API call. |
-| | DiskCache 5.6.3 | On-disk cache for API responses under `data/cache/`. |
+| | SQLite (standard library) | On-disk JSON cache for API responses under `data/cache/`. |
 | | RapidFuzz 3.14.6 | Title and artist similarity scoring in `src/matching.py`. |
 | LLM and observability | Groq via `ChatGroq` (`langchain-groq` 1.1.3, `groq` 0.37.1) | Extraction and lyrics summary on the free tier. |
 | | Langfuse 5.2.0 | Optional metadata-only tracing (`src/tracing.py`); no prompts or song text. |

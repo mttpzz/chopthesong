@@ -467,7 +467,8 @@ def evaluate_case(
 def _finish_error(result: TrackResult, exc: Exception, started_at: float) -> None:
     result.outcome = "error"
     result.status = "error"
-    result.error = _short(str(exc) or type(exc).__name__, 500)
+    # The text can embed a request URL with the query, so keep only the type.
+    result.error = type(exc).__name__
     result.duration_ms = _elapsed_ms(started_at)
 
 

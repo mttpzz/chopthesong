@@ -15,6 +15,38 @@ from langgraph.checkpoint.memory import InMemorySaver
 from src import APP_NAME
 from src.service import resume_search, start_search
 
+# A free public Space: bound the fields and how many searches one browser session may run.
+MAX_FIELD_CHARS = 200
+MAX_SEARCHES_PER_SESSION = 10
+SEARCH_LIMIT_MESSAGE = (
+    "This session has reached the limit of 10 searches. "
+    "Reload the page to start a new session."
+)
+
+# Third-party text (titles, artists, albums, summaries) must stay text, not Markdown.
+_MARKDOWN_CHARS = "\\[]()*_`#<>"
+
+
+def _md_text(value: Any) -> str:
+    """Escape Markdown so catalog or model text stays plain text."""
+    return "".join(
+        f"\\{char}" if char in _MARKDOWN_CHARS else char for char in str(value)
+    )
+
+
+def _https_url(value: Any) -> str | None:
+    """Return the URL only when it is an absolute https link, else None."""
+    if isinstance(value, str) and value.startswith("https://"):
+        return value
+    return None
+
+
+def _link_or_text(label: Any, url: Any) -> str:
+    """Build a Markdown link only for https URLs; otherwise return escaped text."""
+    text = _md_text(label)
+    safe_url = _https_url(url)
+    return f"[{text}]({safe_url})" if safe_url else text
+
 # Opening animation: the Android icon note, cut into four diagonal pieces.
 # Pure HTML, SVG and CSS, rendered with st.markdown(unsafe_allow_html=True)
 # because st.html sanitizes the SVG away. Nothing blocks the first render.
@@ -141,10 +173,16 @@ def _init_state() -> None:
         st.session_state["query"] = ""
     if "artist" not in st.session_state:
         st.session_state["artist"] = None
+    if "searches" not in st.session_state:
+        st.session_state["searches"] = 0
 
 
 def _run_search(query: str, artist: str | None) -> None:
     """Start a fresh search and keep it in the session."""
+    if st.session_state["searches"] >= MAX_SEARCHES_PER_SESSION:
+        st.warning(SEARCH_LIMIT_MESSAGE)
+        return
+    st.session_state["searches"] += 1
     st.session_state["query"] = query
     st.session_state["artist"] = artist
     with st.spinner("Searching..."):
@@ -190,9 +228,15 @@ def _unique(values: list[str]) -> list[str]:
 
 def _candidate_label(item: dict[str, Any]) -> str:
     track = item.get("track") or {}
-    head = f"{track.get('title') or 'Unknown'} - {track.get('artist') or 'Unknown artist'}"
-    extra = [value for value in (track.get("album"), track.get("year")) if value]
-    return head if not extra else f"{head} ({', '.join(str(value) for value in extra)})"
+    title = _md_text(track.get("title") or "Unknown")
+    artist = _md_text(track.get("artist") or "Unknown artist")
+    head = f"{title} - {artist}"
+    extra = [
+        _md_text(value)
+        for value in (track.get("album"), track.get("year"))
+        if value
+    ]
+    return head if not extra else f"{head} ({', '.join(extra)})"
 
 
 def _render_candidates(result: dict[str, Any]) -> None:
@@ -227,28 +271,25 @@ def _render_summary(summary: dict[str, Any] | None) -> None:
         return
     topic = summary.get("topic") or ""
     if topic:
-        st.subheader(topic)
+        st.subheader(_md_text(topic))
     body = summary.get("summary") or ""
     if body:
-        st.write(body)
+        st.write(_md_text(body))
     artist_view = summary.get("artist_view")
     if artist_view:
         with st.container(key="chopthesong-artist-view"):
-            st.caption(artist_view)
+            st.caption(_md_text(artist_view))
 
 
 def _render_samples(nodes: list[dict[str, Any]]) -> None:
     for node in nodes:
         with st.container(border=True):
             title = node.get("title") or "Unknown"
-            track_url = node.get("spotify_url")
-            label = f"[{title}]({track_url})" if track_url else title
+            label = _link_or_text(title, node.get("spotify_url"))
             artist = node.get("artist")
-            artist_url = node.get("spotify_artist_url")
-            if artist and artist_url:
-                artist_label = f"[{artist}]({artist_url})"
-            else:
-                artist_label = artist
+            artist_label = (
+                _link_or_text(artist, node.get("spotify_artist_url")) if artist else ""
+            )
             st.markdown(f"**{label}**" + (f" - {artist_label}" if artist else ""))
             details = []
             if node.get("year"):
@@ -275,7 +316,7 @@ def _render_done(result: dict[str, Any]) -> None:
     track = report.get("track") or {}
     title = track.get("title") or "Unknown track"
     track_url = report.get("spotify_track_url")
-    st.subheader(f"[{title}]({track_url})" if track_url else title)
+    st.subheader(_link_or_text(title, track_url))
 
     artist = track.get("artist")
     album = track.get("album")
@@ -283,10 +324,10 @@ def _render_done(result: dict[str, Any]) -> None:
     meta: list[str] = []
     if artist:
         artist_url = report.get("spotify_artist_url")
-        meta.append(f"[{artist}]({artist_url})" if artist_url else str(artist))
+        meta.append(_link_or_text(artist, artist_url))
     if album:
         album_url = report.get("spotify_album_url")
-        meta.append(f"[{album}]({album_url})" if album_url else str(album))
+        meta.append(_link_or_text(album, album_url))
     if year:
         meta.append(str(year))
     caption = " - ".join(meta)
@@ -401,8 +442,10 @@ def main() -> None:
         st.caption("From a song to its roots: samples, genres and lyrics.")
 
     with st.form("search_form", border=False):
-        song = st.text_input("Song", key="song_input")
-        artist = st.text_input("Artist (optional)", key="artist_input")
+        song = st.text_input("Song", key="song_input", max_chars=MAX_FIELD_CHARS)
+        artist = st.text_input(
+            "Artist (optional)", key="artist_input", max_chars=MAX_FIELD_CHARS
+        )
         submitted = st.form_submit_button("Search", type="primary")
 
     # A plain external link, kept outside the form so Enter still submits it.
@@ -412,8 +455,10 @@ def main() -> None:
     st.link_button("Identify with Shazam", "https://www.shazam.com/")
 
     if submitted:
-        if song.strip():
-            _run_search(song.strip(), artist.strip() or None)
+        song = song.strip()[:MAX_FIELD_CHARS]
+        artist = artist.strip()[:MAX_FIELD_CHARS]
+        if song:
+            _run_search(song, artist or None)
         else:
             st.warning("Type a song first.")
 

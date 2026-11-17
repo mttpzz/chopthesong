@@ -70,6 +70,72 @@ def test_search_form_submits_the_typed_values(monkeypatch) -> None:
     assert calls == [("The Message", "Grandmaster Flash")]
 
 
+def test_search_fields_are_capped_at_200_characters(monkeypatch) -> None:
+    calls: list[tuple[str, str | None]] = []
+
+    def fake_start_search(
+        query: str, artist: str | None, *, checkpointer: object
+    ) -> dict[str, object]:
+        calls.append((query, artist))
+        return {"thread_id": "thread", "status": "needs_input", "candidates": []}
+
+    monkeypatch.setattr("src.service.start_search", fake_start_search)
+
+    app = AppTest.from_file(str(APP), default_timeout=20)
+    app.run()
+
+    assert not app.exception
+    assert app.text_input[0].proto.max_chars == 200
+    assert app.text_input[1].proto.max_chars == 200
+
+    # The widget limit is client-side, so the submit path truncates again.
+    app.text_input(key="song_input").set_value("S" * 250)
+    app.text_input(key="artist_input").set_value("A" * 250)
+    app.form_submit_button[0].click().run()
+
+    assert not app.exception
+    assert calls == [("S" * 200, "A" * 200)]
+
+
+def test_session_allows_at_most_ten_searches(monkeypatch) -> None:
+    calls: list[str] = []
+
+    def fake_start_search(
+        query: str, artist: str | None, *, checkpointer: object
+    ) -> dict[str, object]:
+        calls.append(query)
+        return {"thread_id": "thread", "status": "needs_input", "candidates": []}
+
+    monkeypatch.setattr("src.service.start_search", fake_start_search)
+
+    app = AppTest.from_file(str(APP), default_timeout=20)
+    app.run()
+    app.text_input(key="song_input").set_value("The Message")
+
+    for _ in range(10):
+        app.form_submit_button[0].click().run()
+        assert not app.exception
+
+    assert len(calls) == 10
+    assert not any(
+        "limit of 10 searches" in warning.value for warning in app.warning
+    )
+
+    # An eleventh search is refused with a fixed message and never reaches the service.
+    app.form_submit_button[0].click().run()
+
+    assert not app.exception
+    assert len(calls) == 10
+    assert any(
+        warning.value
+        == (
+            "This session has reached the limit of 10 searches. "
+            "Reload the page to start a new session."
+        )
+        for warning in app.warning
+    )
+
+
 def test_shazam_link_is_offered_under_the_search_form() -> None:
     app = AppTest.from_file(str(APP), default_timeout=20)
     app.run()
@@ -207,4 +273,101 @@ def test_report_names_become_spotify_links() -> None:
     assert any(
         "[Parent Artist](https://open.spotify.com/artist/sample-artist-1)" in value
         for value in markdowns
+    )
+
+
+def test_non_https_urls_are_shown_as_plain_text() -> None:
+    app = AppTest.from_file(str(APP), default_timeout=20)
+    app.session_state["result"] = {
+        "thread_id": "thread",
+        "status": "done",
+        "resolution": "auto",
+        "report": {
+            "track": {
+                "title": "Track Title",
+                "artist": "Artist",
+                "album": "Album",
+                "year": 2000,
+            },
+            "genres": [],
+            "samples": [
+                {
+                    "title": "Parent Sample",
+                    "artist": "Parent Artist",
+                    "source": "MusicBrainz",
+                    "confidence": "high",
+                    "spotify_url": "http://open.spotify.com/track/plain",
+                    "spotify_artist_url": "javascript:alert(1)",
+                    "samples": [],
+                }
+            ],
+            "sources": [],
+            "notes": [],
+            "spotify_track_url": "http://open.spotify.com/track/plain",
+            "spotify_artist_url": "javascript:alert(1)",
+            "spotify_album_url": "ftp://open.spotify.com/album/plain",
+        },
+    }
+
+    app.run()
+
+    assert not app.exception
+    assert "Track Title" in [item.value for item in app.subheader]
+    assert any(
+        value == "Artist - Album - 2000"
+        for value in [item.value for item in app.caption]
+    )
+    rendered = [item.value for item in app.markdown]
+    rendered += [item.value for item in app.caption]
+    rendered += [item.value for item in app.subheader]
+    assert not any(
+        "](" in value and ("http://" in value or "ftp://" in value or "javascript:" in value)
+        for value in rendered
+    )
+    assert any(
+        "**Parent Sample** - Parent Artist" in item.value for item in app.markdown
+    )
+
+
+def test_third_party_text_is_escaped_instead_of_rendered_as_markdown() -> None:
+    app = AppTest.from_file(str(APP), default_timeout=20)
+    app.session_state["result"] = {
+        "thread_id": "thread",
+        "status": "done",
+        "resolution": "auto",
+        "report": {
+            "track": {
+                "title": "x](https://evil.example)",
+                "artist": "*Artist*",
+                "album": "<b>Album</b>",
+                "year": 2000,
+            },
+            "genres": [],
+            "lyrics_summary": {
+                "topic": "Topic [here](https://evil.example)",
+                "summary": "A *summary* with <b>tags</b>.",
+                "artist_view": "[me](https://evil.example)",
+            },
+            "samples": [],
+            "sources": [],
+            "notes": [],
+        },
+    }
+
+    app.run()
+
+    assert not app.exception
+    subheaders = [item.value for item in app.subheader]
+    assert "x\\]\\(https://evil.example\\)" in subheaders
+    assert "Topic \\[here\\]\\(https://evil.example\\)" in subheaders
+    captions = [item.value for item in app.caption]
+    assert any(
+        value == "\\*Artist\\* - \\<b\\>Album\\</b\\> - 2000" for value in captions
+    )
+    assert "\\[me\\]\\(https://evil.example\\)" in captions
+    rendered = [item.value for item in app.markdown] + captions + subheaders
+    assert not any("](https://evil.example)" in value for value in rendered)
+    assert any(
+        item.value == "A \\*summary\\* with \\<b\\>tags\\</b\\>."
+        for item in app.markdown
     )

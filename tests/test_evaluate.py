@@ -482,3 +482,42 @@ def test_limit_evaluates_only_the_requested_prefix(tmp_path: Path) -> None:
     assert payload["dataset_tracks"] == 2
     assert payload["evaluated_tracks"] == 1
     assert len(payload["results"]) == 1
+
+
+def test_output_does_not_store_the_exception_text(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    path = write_dataset(tmp_path, [dataset_entry("the-message")])
+    out_dir = tmp_path / "out"
+
+    def broken_start_search(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        raise RuntimeError("GET https://musicbrainz.org/ws/2?query=Secret+Song failed")
+
+    monkeypatch.setattr(evaluate, "start_search", broken_start_search)
+
+    code = evaluate.main(
+        [
+            "--dataset",
+            str(path),
+            "--out",
+            str(out_dir),
+            "--depth",
+            "1",
+            "--limit",
+            "1",
+        ],
+        runtime_factory=factory([]),
+        settings=Settings(_env_file=None),
+        now=datetime(2026, 1, 2, 3, 4, 5, tzinfo=UTC),
+    )
+
+    assert code == 0
+    json_text = (out_dir / "evaluation-20260102-030405.json").read_text(
+        encoding="utf-8"
+    )
+    md_text = (out_dir / "evaluation-20260102-030405.md").read_text(encoding="utf-8")
+    assert "Secret" not in json_text
+    assert "Secret" not in md_text
+    assert "musicbrainz.org" not in json_text
+    payload = json.loads(json_text)
+    assert payload["results"][0]["error"] == "RuntimeError"

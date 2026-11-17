@@ -21,6 +21,7 @@ from langgraph.types import Command
 from src.config import get_settings
 from src.http import Http
 from src.llm import llm_failure_message
+from src.logging_utils import log_failure
 from src.resolver import Runtime, build_resolve_graph
 from src.spotify import client_from_settings
 from src.tracing import Tracer, build_tracer
@@ -189,8 +190,10 @@ async def _invoke(
         if close is not None:
             try:
                 await close()
-            except Exception:  # closing must not hide a successful result
-                logger.warning("Failed to close the runtime", exc_info=True)
+            except Exception as exc:  # closing must not hide a successful result
+                log_failure(
+                    logger, "Failed to close the runtime", exc, level=logging.WARNING
+                )
         if effective_tracer is not None:
             flush = getattr(effective_tracer, "flush", None)
             if flush is not None:
@@ -351,5 +354,10 @@ async def add_spotify_links(
         if owned_http is not None:
             try:
                 await owned_http.aclose()
-            except Exception:  # a close failure must not replace the report
-                logger.warning("Failed to close the Spotify HTTP client", exc_info=True)
+            except Exception as exc:  # a close failure must not replace the report
+                log_failure(
+                    logger,
+                    "Failed to close the Spotify HTTP client",
+                    exc,
+                    level=logging.WARNING,
+                )

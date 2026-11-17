@@ -5,6 +5,7 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.FileUriExposedException
 import android.os.Handler
 import android.os.Looper
 import android.os.Message
@@ -82,19 +83,44 @@ class MainActivity : Activity() {
                 // The popup only exists to reveal the URL: it is opened outside the app.
                 val transport = resultMsg.obj as? WebView.WebViewTransport ?: return false
                 val popup = WebView(this@MainActivity)
+                popup.settings.apply {
+                    allowFileAccess = false
+                    allowContentAccess = false
+                }
                 popup.webViewClient = object : WebViewClient() {
                     override fun shouldOverrideUrlLoading(
                         popupView: WebView,
                         request: WebResourceRequest
                     ): Boolean {
-                        openLink(request.url)
-                        popupView.destroy()
+                        try {
+                            openLink(request.url)
+                        } finally {
+                            popupView.destroy()
+                        }
                         return true
+                    }
+
+                    override fun onReceivedError(
+                        popupView: WebView,
+                        request: WebResourceRequest,
+                        error: WebResourceError
+                    ) {
+                        popupView.destroy()
                     }
                 }
                 transport.webView = popup
-                resultMsg.sendToTarget()
-                return true
+                return try {
+                    resultMsg.sendToTarget()
+                    true
+                } catch (error: RuntimeException) {
+                    popup.destroy()
+                    false
+                }
+            }
+
+            override fun onCloseWindow(window: WebView) {
+                // The page closed its own popup: release it instead of keeping it alive.
+                window.destroy()
             }
         }
 
@@ -143,10 +169,20 @@ class MainActivity : Activity() {
             webView.loadUrl(uri.toString())
             return
         }
+        // Only web links may leave the app. Other schemes (tel:, sms:, mailto:,
+        // market:, content:, file:, custom apps) would hand the URL to another
+        // component; file: additionally risks FileUriExposedException.
+        if (uri.scheme != "http" && uri.scheme != "https") {
+            return
+        }
         try {
             startActivity(Intent(Intent.ACTION_VIEW, uri))
         } catch (error: ActivityNotFoundException) {
             // No browser installed: leave the page as it is instead of crashing.
+        } catch (error: SecurityException) {
+            // The target app refused the intent: ignore it instead of crashing.
+        } catch (error: FileUriExposedException) {
+            // A file: URI must never be exposed: ignore it instead of crashing.
         }
     }
 

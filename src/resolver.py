@@ -20,6 +20,7 @@ from src.llm import (
     invoke_with_retry,
     llm_failure_message,
 )
+from src.logging_utils import log_failure
 from src.matching import canonicalize, is_confident, normalize_text, score_candidate
 from src.musicbrainz import MusicBrainzClient, parse_recording
 from src.report_checks import find_evidence, is_attributed, leaks
@@ -562,7 +563,8 @@ def _summarize(runtime: Runtime, *, sleep: Sleep = asyncio.sleep):
                 "notice": notice,
             }
 
-        assert summary is not None
+        if summary is None:
+            raise RuntimeError("summary node reached its end without a summary")
         topic = _clean(summary.topic)
         body = _clean(summary.summary)
         artist_view = _clean(summary.artist_view) or None
@@ -979,7 +981,7 @@ def _build_report():
             )
             return {"report": report.model_dump(mode="json")}
         except Exception as exc:  # malformed state is a bug, not a source failure
-            logger.error("Unexpected error while building the report", exc_info=exc)
+            log_failure(logger, "Unexpected error while building the report", exc)
             return {"error": INTERNAL_MESSAGE, "resolution": "internal_error"}
 
     return node
