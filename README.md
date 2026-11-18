@@ -8,14 +8,15 @@ uses, and links to listen or read further. Built on free and open data sources.
 
 ## What it is
 
-You describe a track in plain words ("Bohemian Rhapsody", "the Fatboy Slim one with
-the piano"). The app extracts a title and an artist, searches MusicBrainz, and shows
-the candidate versions when the match is not obvious. Once a recording is chosen, it
-builds a report with:
+You type a song title into the **Song** field and, when you know it, the artist into
+**Artist (optional)**: "Bohemian Rhapsody" with "Queen", or just the title. A small
+extraction step normalizes the two fields into a title and an artist, then the app
+searches MusicBrainz and shows the candidate versions when the match is not obvious.
+Once a recording is chosen, it builds a report with:
 
-- **Genres** from Deezer, merged and de-duplicated.
+- **Genres** from Deezer's album data, de-duplicated.
 - **Lyrics summary**: a short topic, a summary and an "artist's view" generated from
-  the lyrics returned by LRCLIB.
+  the lyrics returned by LRCLIB and the Wikipedia extract.
 - **Samples**, explored level by level: each sample can have its own samples, up to
   `REPORT_DEPTH` rounds (0 disables, 3 is the maximum).
 - **Spotify links** for the track, the album, the samples and every credited artist,
@@ -36,7 +37,11 @@ The public app runs on Streamlit Community Cloud:
 
 <https://chopthesong.streamlit.app/>
 
-No image or GIF is included yet.
+![Chop the Song report for Stan by Eminem](docs/demo.png)
+
+A real report for "Stan" (Eminem featuring Dido): genres, the lyrics summary, the
+sample from Dido's "Thank You" and its source, with Spotify links for the track and
+both artists.
 
 ## How it works
 
@@ -64,13 +69,13 @@ flowchart TD
 
 | Node | What it does |
 | --- | --- |
-| `extract` | Turns the free-text request into a title and an artist with Groq (`ChatGroq`) and a Pydantic schema. |
+| `extract` | Normalizes the typed song and artist into a title and an artist with Groq (`ChatGroq`) and a Pydantic schema. |
 | `search` | Queries MusicBrainz and keeps up to 25 candidate recordings. |
-| `decide` | Scores candidates with RapidFuzz and canonicalizes them to one track per title and primary artist, keeping the best-documented edition and dropping compilations. |
+| `decide` | Scores candidates with RapidFuzz and canonicalizes them to one track per title, primary artist and version, keeping the best-documented edition and preferring non-compilation releases. |
 | `ask` | Pauses the graph with `interrupt()` when the match is ambiguous, and resumes with the version the user picks. |
-| `gather` | Fetches genres (Deezer), lyrics (LRCLIB) and an encyclopedia extract (Wikipedia) through LangChain tools; a dead source returns an empty value instead of breaking the run. |
+| `gather` | Fetches genres (Deezer), lyrics (LRCLIB), an encyclopedia extract (Wikipedia) and MusicBrainz sample relations through LangChain tools; a dead source returns an empty value instead of breaking the run. |
 | `summarize` | Asks the LLM for a short lyrics summary, the topic and the artist's view. |
-| `verify_samples` | Accepts a sample only when the Wikipedia evidence supports it. |
+| `verify_samples` | Keeps the MusicBrainz sample relations and adds a Wikipedia sample only when the extract supports it. |
 | `expand` | Follows the samples' own samples, one round at a time, up to `REPORT_DEPTH`. |
 | `build_report` | Assembles the final report: track, genres, summary, samples, sources and notes. |
 | `handle_error` | Ends the run with one user-facing message for rate limits, provider errors or an invalid key. |
@@ -94,7 +99,7 @@ development assistants are listed separately under [Development tools](#developm
 | | HTTPX 0.28.1 | Async HTTP client for every API call. |
 | | SQLite (standard library) | On-disk JSON cache for API responses under `data/cache/`. |
 | | RapidFuzz 3.14.6 | Title and artist similarity scoring in `src/matching.py`. |
-| LLM and observability | Groq via `ChatGroq` (`langchain-groq` 1.1.3, `groq` 0.37.1) | Extraction and lyrics summary on the free tier. |
+| LLM and observability | Groq via `ChatGroq` (`langchain-groq` 1.1.3, `groq` 0.37.1) | Extraction, lyrics summary and Wikipedia sample extraction on the free tier. |
 | | Langfuse 5.2.0 | Optional metadata-only tracing (`src/tracing.py`); no prompts or song text. |
 | Interface | Streamlit 1.66.1 | The web UI in `app.py`. |
 | | CSS and SVG | The full-page opening animation, defined inline in `app.py`. |
@@ -117,7 +122,7 @@ development assistants are listed separately under [Development tools](#developm
 | | Deezer API | Genres and album data. |
 | | LRCLIB | Plain lyrics. |
 | | Wikipedia API | Song background and sample evidence. |
-| | Spotify Web API | Optional links to open a track in Spotify. |
+| | Spotify Web API | Optional links to open a track, its artists and its album in Spotify. |
 | | Shazam | Outbound link only, for identifying an unknown song. |
 
 ## Development tools
@@ -175,7 +180,7 @@ does not report POSIX permission bits.
 `scripts/evaluate.py` scores the resolver on a fixed dataset of 12 tracks whose
 MusicBrainz IDs are confirmed by hand. It calls the same service functions the UI
 uses, one track at a time, and writes metrics to `data/eval/` (JSON and Markdown).
-Output contains counts, outcomes and identifiers only: no query, song or
+Output contains counts, outcomes and public identifiers only: no user query, lyrics or
 encyclopedia text.
 
 ```powershell
@@ -215,22 +220,13 @@ Totals, with the same formulas the script uses:
 
 The app runs on [Streamlit Community Cloud](https://share.streamlit.io), which serves
 it for free from a public GitHub repository. The server installs `requirements.txt`,
-generated with `uv export --no-dev --no-hashes --format requirements-txt`; it does not
-install the local package, because `app.py` imports `src` from the repository root.
+generated with
+`uv export --no-dev --format requirements-txt --output-file requirements.txt`; it does
+not install the local package, because `app.py` imports `src` from the repository root.
 
-Add the configuration in the app's **Settings → Secrets** page, in TOML format. Never
-commit these values:
-
-| Name | Required | Notes |
-| --- | --- | --- |
-| `GROQ_API_KEY` | yes | Secret. Never commit it. |
-| `GROQ_MODEL` | no | Defaults to the model configured in `config.py`. |
-| `USER_AGENT` | yes | A descriptive MusicBrainz User-Agent with a real contact. |
-| `LANGFUSE_PUBLIC_KEY` | no | Leave empty to disable tracing. |
-| `LANGFUSE_SECRET_KEY` | no | Leave empty to disable tracing. |
-| `LANGFUSE_HOST` | no | Defaults to `https://cloud.langfuse.com`. |
-| `SPOTIFY_CLIENT_ID` | no | Leave empty to hide Spotify links. |
-| `SPOTIFY_CLIENT_SECRET` | no | Leave empty to hide Spotify links. |
+Paste the variables from [Local run](#local-run) into the app's
+**Settings → Secrets** page, in TOML format. Only `GROQ_API_KEY` and `USER_AGENT` are
+required; the rest are optional and keep their default. Never commit the values.
 
 Top-level secrets are also exposed as environment variables, which is how
 `config.py` reads them. The server filesystem is ephemeral: the `data/` HTTP cache is
@@ -257,8 +253,10 @@ src/
   config.py             # settings from the environment and .env
   http.py               # async HTTP client, disk cache and rate limiter
   llm.py                # ChatGroq client and typed errors
+  logging_utils.py      # failure logging that keeps URLs out of the logs
   matching.py           # scoring and canonicalization
   musicbrainz.py        # MusicBrainz client
+  report_checks.py      # lyric-leak and Wikipedia evidence checks
   resolver.py           # LangGraph graph and human-in-the-loop
   schemas.py            # Pydantic models
   service.py            # start and resume a search
